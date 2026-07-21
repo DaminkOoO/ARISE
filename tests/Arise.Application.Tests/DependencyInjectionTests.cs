@@ -4,6 +4,9 @@ using FluentAssertions;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+// Alias : le namespace DataAnnotations expose lui aussi une ValidationException, qui
+// entrerait en collision avec celle de FluentValidation utilisée plus bas.
+using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 
 namespace Arise.Application.Tests;
 
@@ -56,21 +59,48 @@ public class DependencyInjectionTests
         resultat.Should().Be(PipelineValidationProbeHandler.Reponse);
     }
 
+    // Règle non négociable n°7 : tout texte visible par l'utilisateur est en français,
+    // messages de validation compris — ils remontent jusqu'à l'écran. Le gabarit traduit
+    // ne suffit pas : le {PropertyName} interpolé dedans en fait partie.
+
+    public sealed record RequeteEtiquetee(
+        [property: Display(Name = "nom du Chasseur")] string NomDuChasseur)
+        : IRequest<string>;
+
+    public sealed record RequeteSansEtiquette(string NomDuChasseur) : IRequest<string>;
+
     [Fact]
-    public void Formule_les_messages_de_validation_par_defaut_en_francais()
+    public void Formule_en_francais_le_message_par_defaut_nom_de_propriete_compris()
     {
-        // Règle non négociable n°7 : tout texte visible par l'utilisateur est en français,
-        // messages de validation compris — ils remontent jusqu'à l'écran.
         Provider();
 
-        var resultat = new ValidatorSansMessageExplicite().Validate(new RequeteFactice(""));
+        var resultat = new ValidatorEtiquete().Validate(new RequeteEtiquetee(""));
 
         resultat.Errors.Should().ContainSingle()
-            .Which.ErrorMessage.Should().Contain("ne doit pas être vide");
+            .Which.ErrorMessage.Should().Be("'nom du Chasseur' ne doit pas être vide.");
     }
 
-    private sealed class ValidatorSansMessageExplicite : AbstractValidator<RequeteFactice>
+    [Fact]
+    public void N_habille_pas_en_prose_le_nom_d_une_propriete_sans_etiquette_francaise()
     {
-        public ValidatorSansMessageExplicite() => RuleFor(r => r.Nom).NotEmpty();
+        // Le découpage PascalCase par défaut fabrique du franglais présentable
+        // ('Nom Du Chasseur', 'Email Address') qui passe la revue sans se faire remarquer.
+        // Laisser l'identifiant brut rend l'étiquette manquante visible.
+        Provider();
+
+        var resultat = new ValidatorSansEtiquette().Validate(new RequeteSansEtiquette(""));
+
+        resultat.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("'NomDuChasseur' ne doit pas être vide.");
+    }
+
+    private sealed class ValidatorEtiquete : AbstractValidator<RequeteEtiquetee>
+    {
+        public ValidatorEtiquete() => RuleFor(r => r.NomDuChasseur).NotEmpty();
+    }
+
+    private sealed class ValidatorSansEtiquette : AbstractValidator<RequeteSansEtiquette>
+    {
+        public ValidatorSansEtiquette() => RuleFor(r => r.NomDuChasseur).NotEmpty();
     }
 }
