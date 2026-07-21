@@ -77,6 +77,49 @@ public class ResolveurNomAffichableTests
     }
 
     /// <summary>
+    /// Type de ressources ne déclarant volontairement aucune clé : une étiquette qui pointe
+    /// dessus est irrésolvable.
+    /// </summary>
+    public static class RessourcesFactices;
+
+    private sealed class RequeteMalEtiquetee
+    {
+        [Display(Name = "CleAbsente", ResourceType = typeof(RessourcesFactices))]
+        public string Montant { get; init; } = "";
+    }
+
+    [Fact]
+    public void Se_replie_sur_l_identifiant_quand_l_etiquette_Display_est_irresolvable()
+    {
+        // DisplayAttribute.GetName() lève InvalidOperationException quand la clé de ressource
+        // n'existe pas. Le résolveur étant appelé pendant ValidateAsync, laisser l'exception
+        // remonter donnerait à l'appelant une InvalidOperationException au lieu d'une
+        // ValidationException — donc, au bord HTTP, un 500 sur une requête mal remplie.
+        Resoudre((RequeteMalEtiquetee r) => r.Montant).Should().Be("Montant");
+    }
+
+    [Fact]
+    public void Se_replie_sur_le_membre_feuille_sans_expression()
+    {
+        var feuille = typeof(Requete).GetProperty(nameof(Requete.SansEtiquette));
+
+        ResolveurNomAffichable.Resoudre(feuille, expression: null)
+            .Should().Be("SansEtiquette");
+    }
+
+    [Fact]
+    public void Se_replie_sur_le_membre_feuille_quand_la_chaine_n_est_pas_enracinee_sur_le_parametre()
+    {
+        // Chaîne enracinée sur une variable capturée : composer le chemin ferait remonter le
+        // nom du champ de fermeture jusqu'à l'écran.
+        var depense = new Depense();
+        Expression<Func<decimal>> acces = () => depense.Montant;
+
+        ResolveurNomAffichable.Resoudre(((MemberExpression)acces.Body).Member, acces)
+            .Should().Be("Montant");
+    }
+
+    /// <summary>
     /// Reproduit l'appel que FluentValidation fait au résolveur : le membre feuille de
     /// l'expression, et l'expression elle-même.
     /// </summary>

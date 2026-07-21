@@ -73,6 +73,25 @@ internal static class ResolveurNomAffichable
             ? conversion.Operand
             : expression;
 
-    private static string Etiquette(MemberInfo membre) =>
-        membre.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? membre.Name;
+    /// <summary>
+    /// Libellé d'un segment : son <c>[Display(Name = "…")]</c> s'il en porte un, sinon son
+    /// identifiant brut.
+    ///
+    /// <para><c>GetName()</c> lève <see cref="InvalidOperationException"/> quand l'étiquette
+    /// désigne une clé de ressource introuvable. Ce résolveur s'exécutant au cœur de
+    /// <c>ValidateAsync</c>, laisser l'exception remonter substituerait une panne technique à
+    /// la <c>ValidationException</c> attendue — soit, au bord HTTP, un 500 sur une simple
+    /// requête mal remplie. Une étiquette cassée dégrade donc le libellé, pas la requête.</para>
+    /// </summary>
+    private static string Etiquette(MemberInfo membre)
+    {
+        try
+        {
+            return membre.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? membre.Name;
+        }
+        catch (InvalidOperationException)
+        {
+            return membre.Name;
+        }
+    }
 }
