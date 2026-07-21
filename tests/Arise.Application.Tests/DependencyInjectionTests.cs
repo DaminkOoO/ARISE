@@ -31,6 +31,20 @@ public class DependencyInjectionTests
     }
 
     [Fact]
+    public void N_enregistre_le_ValidationBehavior_qu_une_fois_si_appele_deux_fois()
+    {
+        // Deux appels enregistraient deux behaviors : chaque requête valide traversait la
+        // validation en double. Sans effet visible tant que les validators sont purs, mais
+        // le premier validator asynchrone interrogeant la base frapperait la base deux fois.
+        var services = new ServiceCollection().AddApplication().AddApplication();
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetServices<IPipelineBehavior<RequeteFactice, string>>()
+            .Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task Applique_a_une_requete_envoyee_les_validators_decouverts_dans_l_assembly_Application()
     {
         // Ferme d'un seul tenant la couture « découverte des validators + pipeline MediatR ».

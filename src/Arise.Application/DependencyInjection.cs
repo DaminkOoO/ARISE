@@ -5,6 +5,7 @@ using Arise.Application.Common.Validation;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Arise.Application;
 
@@ -35,11 +36,17 @@ public static class DependencyInjection
         services.AddMediatR(configuration =>
             configuration.RegisterServicesFromAssembly(AssemblyApplication));
 
+        // includeInternalTypes est nécessaire : le validator de PipelineValidationProbe
+        // (Common/Diagnostics) est internal, et c'est lui qui rend cette découverte
+        // observable. Le retirer rendrait le balayage muet sans faire rougir grand-chose.
         services.AddValidatorsFromAssembly(AssemblyApplication, includeInternalTypes: true);
 
         // Enregistré en générique ouvert : toute commande ou requête ajoutée plus tard
-        // traverse la validation sans câblage supplémentaire.
-        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        // traverse la validation sans câblage supplémentaire. TryAddEnumerable, et non
+        // AddTransient : deux appels à AddApplication() empileraient sinon deux behaviors,
+        // et chaque requête valide traverserait la validation en double.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Transient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>)));
 
         return services;
     }
