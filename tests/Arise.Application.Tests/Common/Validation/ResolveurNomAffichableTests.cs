@@ -42,6 +42,40 @@ public class ResolveurNomAffichableTests
         Resoudre((Requete r) => r.NomDuChasseur).Should().Be("nom du Chasseur");
     }
 
+    private sealed class Depense
+    {
+        public decimal Montant { get; init; }
+    }
+
+    private sealed class Budget
+    {
+        [Display(Name = "budget")]
+        public Depense Plafond { get; init; } = new();
+    }
+
+    private sealed class RequeteImbriquee
+    {
+        public Depense Depense { get; init; } = new();
+
+        public Budget Budget { get; init; } = new();
+    }
+
+    [Fact]
+    public void Compose_le_chemin_complet_d_une_propriete_imbriquee()
+    {
+        // Le membre feuille seul rend deux champs distincts indiscernables : x.Depense.Montant
+        // et x.Budget.Plafond.Montant produiraient tous deux « 'Montant' ne doit pas être
+        // vide. », sans que l'utilisateur sache lequel corriger.
+        Resoudre((RequeteImbriquee r) => r.Depense.Montant).Should().Be("Depense.Montant");
+    }
+
+    [Fact]
+    public void Applique_l_etiquette_Display_au_segment_qui_la_porte()
+    {
+        Resoudre((RequeteImbriquee r) => r.Budget.Plafond.Montant)
+            .Should().Be("Budget.budget.Montant");
+    }
+
     /// <summary>
     /// Reproduit l'appel que FluentValidation fait au résolveur : le membre feuille de
     /// l'expression, et l'expression elle-même.
