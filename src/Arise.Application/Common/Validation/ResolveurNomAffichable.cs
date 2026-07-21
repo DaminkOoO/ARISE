@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Resources;
 // Alias : le namespace DataAnnotations expose lui aussi une ValidationException, qui
 // entrerait en collision avec celle de FluentValidation.
 using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
@@ -77,11 +78,31 @@ internal static class ResolveurNomAffichable
     /// Libellé d'un segment : son <c>[Display(Name = "…")]</c> s'il en porte un, sinon son
     /// identifiant brut.
     ///
-    /// <para><c>GetName()</c> lève <see cref="InvalidOperationException"/> quand l'étiquette
-    /// désigne une clé de ressource introuvable. Ce résolveur s'exécutant au cœur de
-    /// <c>ValidateAsync</c>, laisser l'exception remonter substituerait une panne technique à
-    /// la <c>ValidationException</c> attendue — soit, au bord HTTP, un 500 sur une simple
-    /// requête mal remplie. Une étiquette cassée dégrade donc le libellé, pas la requête.</para>
+    /// <para>Ce résolveur s'exécutant au cœur de <c>ValidateAsync</c>, laisser une exception
+    /// remonter substituerait une panne technique à la <c>ValidationException</c> attendue —
+    /// soit, au bord HTTP, un 500 sur une simple requête mal remplie. Une étiquette cassée
+    /// dégrade donc le libellé, pas la requête.</para>
+    ///
+    /// <para>Deux modes de panne distincts, et le second n'est pas une variante du premier :
+    /// <list type="bullet">
+    /// <item>la clé est introuvable dans le type de ressource — <c>GetName()</c> lève
+    /// <see cref="InvalidOperationException"/> avant même de lire quoi que ce soit ;</item>
+    /// <item>la clé se résout, mais son getter échoue à l'exécution — typiquement un type
+    /// généré depuis un <c>.resx</c> dont le <c>.resources</c> compilé ou le satellite de
+    /// culture manque au déploiement (image Docker construite sans les satellites,
+    /// <c>&lt;EmbeddedResource&gt;</c> retiré). L'exception d'origine est alors une
+    /// <see cref="MissingManifestResourceException"/>.</item>
+    /// </list></para>
+    ///
+    /// <para>Ce second cas se rattrape sous deux formes selon le chemin d'invocation : la
+    /// réflexion emballe l'échec du getter dans une
+    /// <see cref="TargetInvocationException"/> lorsqu'elle enveloppe les exceptions, et le
+    /// laisse ressortir tel quel sinon (ce que fait le chemin actuel du runtime). Les deux
+    /// sont couvertes ; on ne parie pas sur la forme observée aujourd'hui.</para>
+    ///
+    /// <para>Le rattrapage est large mais borné à ces types : la valeur de repli
+    /// (<c>membre.Name</c>) est toujours correcte, et aucune de ces pannes n'est actionnable
+    /// pour l'appelant, qui voulait un libellé et en obtient un.</para>
     /// </summary>
     private static string Etiquette(MemberInfo membre)
     {
@@ -89,7 +110,10 @@ internal static class ResolveurNomAffichable
         {
             return membre.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? membre.Name;
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (exception
+            is InvalidOperationException
+            or MissingManifestResourceException
+            or TargetInvocationException)
         {
             return membre.Name;
         }

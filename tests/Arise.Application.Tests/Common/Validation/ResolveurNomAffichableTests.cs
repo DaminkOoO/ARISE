@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Resources;
 using Arise.Application.Common.Validation;
 using FluentAssertions;
 // Alias : le namespace DataAnnotations expose lui aussi une ValidationException, qui
@@ -96,6 +97,33 @@ public class ResolveurNomAffichableTests
         // remonter donnerait à l'appelant une InvalidOperationException au lieu d'une
         // ValidationException — donc, au bord HTTP, un 500 sur une requête mal remplie.
         Resoudre((RequeteMalEtiquetee r) => r.Montant).Should().Be("Montant");
+    }
+
+    /// <summary>
+    /// Type de ressources dont la clé existe et se résout, mais dont le getter échoue à
+    /// l'exécution — cas d'un type généré depuis un <c>.resx</c> dont le <c>.resources</c>
+    /// compilé ou le satellite de culture manque au déploiement.
+    /// </summary>
+    public static class RessourcesQuiLevent
+    {
+        public static string Cle =>
+            throw new MissingManifestResourceException("Satellite de ressources absent.");
+    }
+
+    private sealed class RequeteDontLaRessourceLeve
+    {
+        [Display(Name = "Cle", ResourceType = typeof(RessourcesQuiLevent))]
+        public string Montant { get; init; } = "";
+    }
+
+    [Fact]
+    public void Se_replie_sur_l_identifiant_quand_le_getter_de_ressource_leve()
+    {
+        // Symétrique du cas « clé absente », mais par un autre mécanisme : l'étiquette est
+        // techniquement résolvable, et c'est l'invocation du getter qui échoue. GetName()
+        // passant par la réflexion, l'échec ressort emballé dans TargetInvocationException —
+        // que le garde d'origine, ciblé sur InvalidOperationException, ne rattrapait pas.
+        Resoudre((RequeteDontLaRessourceLeve r) => r.Montant).Should().Be("Montant");
     }
 
     [Fact]
