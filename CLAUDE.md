@@ -82,15 +82,28 @@ le principe.
 
 ## Agents du dépôt (`.claude/agents/`)
 
-Deux relecteurs indépendants, à lancer **en parallèle** avant de passer une tâche en `Done`.
-Ils lisent les skills correspondantes pour les règles, ne modifient jamais le code, et
-rendent un rapport localisé en `fichier:ligne`.
+Six agents qui se répartissent trois rôles disjoints : **un décide, un écrit, quatre jugent.**
+Aucun n'en cumule deux.
 
-| Agent | Contrôle |
+| Agent | Rôle |
 |---|---|
-| `revue-garde-fous` | Sécurité produit : budget, sport, ton, courses, français (règles 5-7) |
-| `revue-architecture` | Couches, CQRS, validation, couverture TDD, pattern d'agent (règles 1-2, 4) |
-| `revue-commit` | Ce qui entre dans l'historique : secrets, artefacts, gros fichiers, cohérence du lot |
+| `orchestrateur` | Conduit la session : tâche Notion → `codeur` → les quatre revues → vérifie → `Done` |
+| `codeur` | Implémente une tâche déjà choisie, en TDD strict, et commite à chaque état vert |
+
+Les quatre relecteurs sont indépendants et se lancent **en parallèle**, dans un seul message,
+avant de passer une tâche en `Done`. Ils lisent les skills correspondantes pour les règles,
+ne modifient jamais le code, et rendent un rapport localisé en `fichier:ligne`.
+
+| Relecteur | Question à laquelle il répond |
+|---|---|
+| `revue-code` | Le code est-il **juste** ? Bugs, cas limites, dates et séries, async, argent, réponses LLM |
+| `revue-architecture` | Le code est-il **bien rangé** ? Couches, CQRS, validation, couverture TDD (règles 1-2, 4) |
+| `revue-garde-fous` | Le code est-il **sans danger** ? Budget, sport, ton, courses, français (règles 5-7) |
+| `revue-commit` | **L'historique** est-il propre ? Secrets, artefacts, gros fichiers, cohérence du lot |
+
+Les quatre angles sont disjoints, et c'est la raison de leur nombre : du code peut être
+parfaitement rangé dans la bonne couche, passer tous les garde-fous produit, et calculer le
+mauvais niveau de Chasseur. Seul `revue-code` attrape ça.
 
 ---
 
