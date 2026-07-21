@@ -1,12 +1,10 @@
 using System.Globalization;
 using System.Reflection;
 using Arise.Application.Common.Behaviors;
+using Arise.Application.Common.Validation;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-// Alias : le namespace DataAnnotations expose lui aussi une ValidationException, qui
-// entrerait en collision avec celle de FluentValidation.
-using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 
 namespace Arise.Application;
 
@@ -32,7 +30,7 @@ public static class DependencyInjection
         // partie, et le résoudre par découpage PascalCase de l'identifiant C# produit du
         // franglais ('Password' ne doit pas être vide, 'Email Address' n'est pas valide).
         ValidatorOptions.Global.DisplayNameResolver =
-            (_, membre, _) => NomAffichable(membre);
+            (_, membre, expression) => ResolveurNomAffichable.Resoudre(membre, expression);
 
         services.AddMediatR(configuration =>
             configuration.RegisterServicesFromAssembly(AssemblyApplication));
@@ -45,22 +43,4 @@ public static class DependencyInjection
 
         return services;
     }
-
-    /// <summary>
-    /// Étiquette française d'une propriété dans les messages de validation.
-    ///
-    /// <para>La seule source d'un libellé destiné à l'écran est une déclaration explicite :
-    /// <c>[Display(Name = "…")]</c> sur la propriété, ou <c>.WithName(…)</c> sur la règle,
-    /// que FluentValidation applique par-dessus ce résolveur.</para>
-    ///
-    /// <para>Sans étiquette, on renvoie l'identifiant brut plutôt que son découpage
-    /// PascalCase. Ce découpage n'existe que pour transformer un identifiant anglais en
-    /// prose anglaise : appliqué ici, il fabrique un franglais présentable
-    /// (« Nom Du Chasseur », « Email Address ») qui traverse une revue sans se faire
-    /// remarquer. L'identifiant brut, lui, signale l'étiquette manquante.</para>
-    /// </summary>
-    private static string? NomAffichable(MemberInfo? membre) =>
-        membre is null
-            ? null // Expression sans membre : on laisse FluentValidation décider.
-            : membre.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? membre.Name;
 }

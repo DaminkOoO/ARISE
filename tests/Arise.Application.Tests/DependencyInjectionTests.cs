@@ -1,12 +1,10 @@
+using System.Linq.Expressions;
 using Arise.Application.Common.Behaviors;
 using Arise.Application.Common.Diagnostics;
 using FluentAssertions;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-// Alias : le namespace DataAnnotations expose lui aussi une ValidationException, qui
-// entrerait en collision avec celle de FluentValidation utilisée plus bas.
-using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 
 namespace Arise.Application.Tests;
 
@@ -63,44 +61,40 @@ public class DependencyInjectionTests
     // messages de validation compris — ils remontent jusqu'à l'écran. Le gabarit traduit
     // ne suffit pas : le {PropertyName} interpolé dedans en fait partie.
 
-    public sealed record RequeteEtiquetee(
-        [property: Display(Name = "nom du Chasseur")] string NomDuChasseur)
-        : IRequest<string>;
-
-    public sealed record RequeteSansEtiquette(string NomDuChasseur) : IRequest<string>;
-
-    [Fact]
-    public void Formule_en_francais_le_message_par_defaut_nom_de_propriete_compris()
+    private sealed class Requete
     {
-        Provider();
-
-        var resultat = new ValidatorEtiquete().Validate(new RequeteEtiquetee(""));
-
-        resultat.Errors.Should().ContainSingle()
-            .Which.ErrorMessage.Should().Be("'nom du Chasseur' ne doit pas être vide.");
+        public string NomDuChasseur { get; init; } = "";
     }
 
     [Fact]
-    public void N_habille_pas_en_prose_le_nom_d_une_propriete_sans_etiquette_francaise()
+    public void Branche_le_resolveur_de_noms_francais_sur_FluentValidation()
     {
-        // Le découpage PascalCase par défaut fabrique du franglais présentable
-        // ('Nom Du Chasseur', 'Email Address') qui passe la revue sans se faire remarquer.
-        // Laisser l'identifiant brut rend l'étiquette manquante visible.
+        // Ce que le résolveur répond est éprouvé à part, comme fonction pure
+        // (ResolveurNomAffichableTests) : ValidatorOptions.Global est un statique global au
+        // processus, et xUnit parallélise les classes de tests d'une même assembly. Ce test
+        // ne couvre donc que le branchement, et sur une valeur qu'il produit lui-même.
+        Provider();
+        Expression<Func<Requete, string>> acces = r => r.NomDuChasseur;
+
+        var nom = ValidatorOptions.Global.DisplayNameResolver(
+            typeof(Requete), ((MemberExpression)acces.Body).Member, acces);
+
+        nom.Should().Be("NomDuChasseur");
+    }
+
+    [Fact]
+    public void Formule_en_francais_les_gabarits_de_message_par_defaut()
+    {
         Provider();
 
-        var resultat = new ValidatorSansEtiquette().Validate(new RequeteSansEtiquette(""));
+        var resultat = new ValidatorDeRequete().Validate(new Requete());
 
         resultat.Errors.Should().ContainSingle()
             .Which.ErrorMessage.Should().Be("'NomDuChasseur' ne doit pas être vide.");
     }
 
-    private sealed class ValidatorEtiquete : AbstractValidator<RequeteEtiquetee>
+    private sealed class ValidatorDeRequete : AbstractValidator<Requete>
     {
-        public ValidatorEtiquete() => RuleFor(r => r.NomDuChasseur).NotEmpty();
-    }
-
-    private sealed class ValidatorSansEtiquette : AbstractValidator<RequeteSansEtiquette>
-    {
-        public ValidatorSansEtiquette() => RuleFor(r => r.NomDuChasseur).NotEmpty();
+        public ValidatorDeRequete() => RuleFor(r => r.NomDuChasseur).NotEmpty();
     }
 }
