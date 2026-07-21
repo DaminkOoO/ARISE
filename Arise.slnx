@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Arise.Api/Arise.Api.csproj" />
+    <Project Path="src/Arise.Application/Arise.Application.csproj" />
+    <Project Path="src/Arise.Domain/Arise.Domain.csproj" />
+    <Project Path="src/Arise.Infrastructure/Arise.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Arise.Api.Tests/Arise.Api.Tests.csproj" />
+    <Project Path="tests/Arise.Application.Tests/Arise.Application.Tests.csproj" />
+    <Project Path="tests/Arise.Domain.Tests/Arise.Domain.Tests.csproj" />
+    <Project Path="tests/Arise.Infrastructure.Tests/Arise.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,15 @@
+<Project>
+
+  <!--
+    Propriétés communes à tous les projets de la solution.
+    Le framework cible est centralisé ici : le changer se fait en un seul endroit,
+    et non dans les huit .csproj.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

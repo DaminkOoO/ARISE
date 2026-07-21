@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <!--
+      Référence explicite : Microsoft.AspNetCore.OpenApi 10.0.7 tire transitivement
+      Microsoft.OpenApi 2.0.0, qui porte une vulnérabilité de sévérité haute
+      (NU1903 / GHSA-v5pm-xwqc-g5wc, plage atteinte 2.0.0-preview.11 → 2.7.4).
+      2.7.5 est la première version corrigée de la ligne 2.x. Ne pas supprimer cette
+      ligne en la croyant redondante tant que le paquet parent n'aura pas relevé sa borne.
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Arise.Application\Arise.Application.csproj" />
+    <ProjectReference Include="..\Arise.Infrastructure\Arise.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
