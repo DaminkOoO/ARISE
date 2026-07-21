@@ -21,9 +21,12 @@ reste à écrire.
 - **`docs/` n'existe pas encore.** Les documents listés dans « Documents de référence » n'y
   sont pas. N'y pars pas à leur recherche ; s'il t'en faut un, demande-le à l'utilisateur
   plutôt que de reconstituer l'architecture de tête.
-- Les projets sont **vides de types** : `Arise.Domain` et consorts ne contiennent aucun
-  fichier. La suite de tests est vide elle aussi — le premier test réel viendra avec la
-  première tâche de domaine.
+- **`Arise.Domain` et `Arise.Infrastructure` sont vides de types** — aucun fichier. La
+  première entité reste à écrire. `Arise.Application`, en revanche, porte déjà le câblage
+  MediatR + FluentValidation (`ValidationBehavior`, `ResolveurNomAffichable`,
+  `DependencyInjection`, la sonde de pipeline), et la suite compte **21 tests verts**, tous
+  dans `Arise.Application.Tests`. Tu n'écris donc pas le premier test du dépôt : lis les
+  tests existants avant d'en ajouter, les conventions y sont déjà posées.
 - Le framework cible est **net10.0**, centralisé dans `Directory.Build.props` (et non dans
   chaque `.csproj`). Le changer se fait à un seul endroit.
 
