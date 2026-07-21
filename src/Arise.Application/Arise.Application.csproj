@@ -1,6 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- La sonde de pipeline (Common/Diagnostics) est internal pour rester hors de la
+         surface publique de la couche ; le projet de tests doit pouvoir l'atteindre. -->
+    <InternalsVisibleTo Include="Arise.Application.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Arise.Domain\Arise.Domain.csproj" />
   </ItemGroup>
 

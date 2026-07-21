@@ -1,4 +1,5 @@
 using Arise.Application.Common.Behaviors;
+using Arise.Application.Common.Diagnostics;
 using FluentAssertions;
 using FluentValidation;
 using MediatR;
@@ -29,12 +30,30 @@ public class DependencyInjectionTests
     }
 
     [Fact]
-    public void Enregistre_les_validators_declares_dans_l_assembly_Application()
+    public async Task Applique_a_une_requete_envoyee_les_validators_decouverts_dans_l_assembly_Application()
     {
-        // Le marqueur d'assembly détermine où AddApplication va chercher handlers et
-        // validators : s'il pointe ailleurs, le pipeline se retrouve silencieusement vide.
-        typeof(ValidationBehavior<,>).Assembly
-            .Should().BeSameAs(Arise.Application.DependencyInjection.AssemblyApplication);
+        // Ferme d'un seul tenant la couture « découverte des validators + pipeline MediatR ».
+        // Le mode de panne visé est silencieux : si la découverte ne trouve rien, le
+        // ValidationBehavior s'exécute avec zéro validator et laisse tout passer sans rougir.
+        // La sonde vit dans l'assembly Application parce que c'est celle qui est balayée.
+        var mediator = Provider().GetRequiredService<IMediator>();
+
+        var acte = async () => await mediator.Send(new PipelineValidationProbe(""));
+
+        (await acte.Should().ThrowAsync<ValidationException>())
+            .Which.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should()
+            .Be(PipelineValidationProbeValidator.MessageValeurObligatoire);
+    }
+
+    [Fact]
+    public async Task Laisse_une_requete_valide_atteindre_son_handler()
+    {
+        var mediator = Provider().GetRequiredService<IMediator>();
+
+        var resultat = await mediator.Send(new PipelineValidationProbe("valeur"));
+
+        resultat.Should().Be(PipelineValidationProbeHandler.Reponse);
     }
 
     [Fact]
