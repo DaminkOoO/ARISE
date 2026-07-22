@@ -121,9 +121,43 @@ public class ResolveurNomAffichableTests
     {
         // Symétrique du cas « clé absente », mais par un autre mécanisme : l'étiquette est
         // techniquement résolvable, et c'est l'invocation du getter qui échoue. GetName()
-        // passant par la réflexion, l'échec ressort emballé dans TargetInvocationException —
-        // que le garde d'origine, ciblé sur InvalidOperationException, ne rattrapait pas.
+        // passant par PropertyInfo.GetValue, l'échec ressort emballé dans
+        // TargetInvocationException — que le garde d'origine, ciblé sur
+        // InvalidOperationException, ne rattrapait pas. C'est donc la clause
+        // TargetInvocationException qui porte ici, pas celle sur
+        // MissingManifestResourceException : la forme sous-jacente est épinglée à part par
+        // La_reflexion_emballe_l_echec_du_getter_de_ressource.
         Resoudre((RequeteDontLaRessourceLeve r) => r.Montant).Should().Be("Montant");
+    }
+
+    /// <summary>
+    /// Épingle la forme sous laquelle l'échec du getter ressort de <c>GetName()</c>, mesurée
+    /// et non supposée.
+    ///
+    /// <para>Cette forme n'est pas un détail : elle décide laquelle des deux clauses du garde
+    /// de <c>Etiquette</c> porte réellement. Aujourd'hui c'est
+    /// <see cref="TargetInvocationException"/> — <c>GetName()</c> passe par
+    /// <c>PropertyInfo.GetValue</c>, qui enveloppe. La clause
+    /// <see cref="MissingManifestResourceException"/> est donc défensive et non exercée : la
+    /// forme nue existe bel et bien (<c>BindingFlags.DoNotWrapExceptions</c> et
+    /// <c>MethodInvoker</c> la produisent) mais aucun chemin d'invocation du résolveur ne
+    /// l'atteint sur ce runtime.</para>
+    ///
+    /// <para>D'où ce test plutôt qu'un test de la forme nue, qu'il faudrait fabriquer pour
+    /// qu'il existe : si un runtime futur cesse d'envelopper, ce test vire au rouge et signale
+    /// que la clause défensive vient de devenir porteuse — au lieu de la laisser se faire
+    /// retirer comme du code mort.</para>
+    /// </summary>
+    [Fact]
+    public void La_reflexion_emballe_l_echec_du_getter_de_ressource()
+    {
+        var membre = typeof(RequeteDontLaRessourceLeve)
+            .GetProperty(nameof(RequeteDontLaRessourceLeve.Montant))!;
+
+        var echec = Record.Exception(() => membre.GetCustomAttribute<DisplayAttribute>()!.GetName());
+
+        echec.Should().BeOfType<TargetInvocationException>()
+            .Which.InnerException.Should().BeOfType<MissingManifestResourceException>();
     }
 
     [Fact]

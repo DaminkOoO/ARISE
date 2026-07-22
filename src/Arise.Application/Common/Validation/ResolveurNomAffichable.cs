@@ -97,8 +97,14 @@ internal static class ResolveurNomAffichable
     /// <para>Ce second cas se rattrape sous deux formes selon le chemin d'invocation : la
     /// réflexion emballe l'échec du getter dans une
     /// <see cref="TargetInvocationException"/> lorsqu'elle enveloppe les exceptions, et le
-    /// laisse ressortir tel quel sinon (ce que fait le chemin actuel du runtime). Les deux
-    /// sont couvertes ; on ne parie pas sur la forme observée aujourd'hui.</para>
+    /// laisse ressortir tel quel sinon (<c>BindingFlags.DoNotWrapExceptions</c>,
+    /// <c>MethodInvoker</c>). Le chemin actuel du runtime enveloppe :
+    /// <c>GetName()</c> passe par <c>PropertyInfo.GetValue</c>, et c'est la
+    /// <see cref="TargetInvocationException"/> qui porte, comme l'épingle le test
+    /// <c>La_reflexion_emballe_l_echec_du_getter_de_ressource</c>. La clause
+    /// <see cref="MissingManifestResourceException"/> est donc défensive et non exercée
+    /// aujourd'hui : on la garde parce qu'elle coûte un type dans un filtre, là où son retrait
+    /// coûterait le 500-sur-requête-mal-remplie le jour où un chemin cesse d'envelopper.</para>
     ///
     /// <para>Le rattrapage est large mais borné à ces types : la valeur de repli
     /// (<c>membre.Name</c>) est toujours correcte, et aucune de ces pannes n'est actionnable
