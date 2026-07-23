@@ -47,6 +47,22 @@ class _Contenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: _Liste(data: data)),
+        const _BarreNavigation(),
+      ],
+    );
+  }
+}
+
+class _Liste extends StatelessWidget {
+  const _Liste({required this.data});
+
+  final HomeData data;
+
+  @override
+  Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AriseSpacing.ecran,
@@ -275,6 +291,67 @@ class _LigneQuete extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BarreNavigation extends StatelessWidget {
+  const _BarreNavigation();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AriseColors.panneau,
+        border: Border(top: BorderSide(color: AriseColors.bordure)),
+      ),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: const [
+          _OngletNav(libelle: Textes.navAccueil, actif: true),
+          _OngletNav(libelle: Textes.navSport),
+          _OngletNav(libelle: Textes.navBudget),
+          _OngletNav(libelle: Textes.navHabitudes),
+          _OngletNav(libelle: Textes.navCalendrier),
+        ],
+      ),
+    );
+  }
+}
+
+class _OngletNav extends StatelessWidget {
+  const _OngletNav({required this.libelle, this.actif = false});
+
+  final String libelle;
+  final bool actif;
+
+  @override
+  Widget build(BuildContext context) {
+    final couleur = actif ? AriseColors.systeme : AriseColors.texteAttenue;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            border: Border.all(color: couleur, width: 1.5),
+            boxShadow: actif
+                ? [BoxShadow(color: couleur.withValues(alpha: 0.6), blurRadius: 8)]
+                : null,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          libelle,
+          style: AriseTypography.corps.copyWith(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w500,
+            color: couleur,
+          ),
+        ),
+      ],
     );
   }
 }

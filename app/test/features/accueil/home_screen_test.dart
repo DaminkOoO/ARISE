@@ -122,7 +122,24 @@ void main() {
       await tester.pumpWidget(_app(_FakeHomeService.donnee(_demo)));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.textContaining('Épreuve du Jour'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.textContaining('Épreuve du Jour'), findsOneWidget);
+    });
+
+    testWidgets('affiche la barre de navigation des quatre domaines',
+        (tester) async {
+      await tester.pumpWidget(_app(_FakeHomeService.donnee(_demo)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Accueil'), findsOneWidget);
+      expect(find.text('Sport'), findsOneWidget);
+      expect(find.text('Budget'), findsOneWidget);
+      expect(find.text('Habitudes'), findsOneWidget);
+      expect(find.text('Calendrier'), findsOneWidget);
     });
   });
 }

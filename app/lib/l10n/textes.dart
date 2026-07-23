@@ -49,6 +49,11 @@ abstract final class Textes {
 
   // Accueil.
   static const String serieActuelle = 'Série actuelle';
+  static const String navAccueil = 'Accueil';
+  static const String navSport = 'Sport';
+  static const String navBudget = 'Budget';
+  static const String navHabitudes = 'Habitudes';
+  static const String navCalendrier = 'Calendrier';
 
   static String serieEnJours(int jours) => '$jours jours';
   static String xp(int montant) => '+$montant XP';
