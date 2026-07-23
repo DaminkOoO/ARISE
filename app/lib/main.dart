@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'features/accueil/home_screen.dart';
 import 'theme/arise_theme.dart';
 
 void main() {
@@ -17,11 +18,7 @@ class AriseApp extends StatelessWidget {
       title: 'ARISE',
       debugShowCheckedModeBanner: false,
       theme: ariseTheme(),
-      home: const Scaffold(
-        body: Center(
-          child: Text('ARISE', style: AriseTypography.titre),
-        ),
-      ),
+      home: const HomeScreen(),
     );
   }
 }
