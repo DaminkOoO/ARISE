@@ -1,0 +1,39 @@
+using Arise.Application.Common.Abstractions;
+using Arise.Infrastructure.Auth;
+using Arise.Infrastructure.Persistence;
+using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Arise.Infrastructure.Tests;
+
+/// <summary>
+/// Éprouve le câblage tel que l'API l'appellera : <c>AddInfrastructure</c> doit brancher les
+/// contrats d'Application sur leurs implémentations EF/Identity, avec les bonnes durées de
+/// vie. Aucune connexion n'est ouverte — ces tests tournent sans Docker.
+/// </summary>
+public class DependencyInjectionTests
+{
+    private static IServiceCollection Cablage() =>
+        new ServiceCollection().AddInfrastructure("Host=hôte-inutilisé;Database=arise");
+
+    // Le repository suit le DbContext (scoped) dont il dépend : un singleton capturerait un
+    // contexte, un transient en gaspillerait.
+    [Fact]
+    public void Branche_le_repository_des_Chasseurs_sur_EF()
+    {
+        var descripteur = Cablage().Single(service => service.ServiceType == typeof(IUserRepository));
+
+        descripteur.ImplementationType.Should().Be(typeof(EfUserRepository));
+        descripteur.Lifetime.Should().Be(ServiceLifetime.Scoped);
+    }
+
+    // Le hacheur est sans état : une seule instance suffit.
+    [Fact]
+    public void Branche_le_hacheur_sur_l_implementation_Identity()
+    {
+        var descripteur = Cablage().Single(service => service.ServiceType == typeof(IPasswordHasher));
+
+        descripteur.ImplementationType.Should().Be(typeof(PasswordHasher));
+        descripteur.Lifetime.Should().Be(ServiceLifetime.Singleton);
+    }
+}
