@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/textes.dart';
 import '../../theme/arise_theme.dart';
+import '../../widgets/hexagon.dart';
 import '../../widgets/hud_background.dart';
 import '../../widgets/hud_corners.dart';
 import '../../widgets/system_label.dart';
@@ -221,29 +222,7 @@ class _BadgeRang extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: ClipPath(
-        clipper: HexagonClipper(),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AriseColors.systeme, AriseColors.glow],
-            ),
-          ),
-          child: Center(
-            child: Text(
-              rang,
-              style: AriseTypography.titre.copyWith(
-                fontSize: 20,
-                color: AriseColors.glow,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return HexBadge(lettre: rang, taille: 48);
   }
 }
 
@@ -375,25 +354,4 @@ class _CaseQuete extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Découpe hexagonale de la charte : polygon(25% 0,75% 0,100% 50,75% 100,
-/// 25% 100,0 50). Sert aux badges de rang.
-class HexagonClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-    return Path()
-      ..moveTo(w * 0.25, 0)
-      ..lineTo(w * 0.75, 0)
-      ..lineTo(w, h * 0.5)
-      ..lineTo(w * 0.75, h)
-      ..lineTo(w * 0.25, h)
-      ..lineTo(0, h * 0.5)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant HexagonClipper oldClipper) => false;
 }
