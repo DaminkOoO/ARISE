@@ -31,6 +31,18 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!--
+      Porte Microsoft.AspNetCore.Identity.PasswordHasher<T> : le hachage salé autonome voulu
+      par CLAUDE.md (pas de fournisseur d'identité externe). Version alignée sur la ligne EF
+      Core 10.0.10 du dépôt.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Les implémentations restent internal ; leurs tests les instancient et vérifient le
+         câblage DI par type concret. -->
+    <InternalsVisibleTo Include="Arise.Infrastructure.Tests" />
   </ItemGroup>
 
 </Project>
