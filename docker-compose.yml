@@ -27,6 +27,13 @@ services:
       # L'hôte « postgres » est le nom du service ; 5432 est le port interne au réseau compose.
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       ASPNETCORE_HTTP_PORTS: "5006"
+      # Sans la section Jwt, l'API échoue au démarrage (fail-fast volontaire) : elle signe et
+      # valide les jetons avec ces paramètres. La clé est un secret et vient du .env non
+      # versionné ; l'émetteur, l'audience et la durée sont des réglages, pas des secrets.
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER:-arise}
+      Jwt__Audience: ${JWT_AUDIENCE:-arise-clients}
+      Jwt__DureeMinutes: ${JWT_DUREE_MINUTES:-60}
     depends_on:
       postgres:
         condition: service_healthy
