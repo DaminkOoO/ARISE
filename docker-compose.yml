@@ -1,0 +1,37 @@
+# Pile locale ARISE : base de données + API.
+# Les identifiants proviennent d'un fichier .env (non versionné) — voir .env.example.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - arise-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      # Contexte = racine du dépôt : les projets se référencent entre eux et
+      # Directory.Build.props vit à la racine.
+      context: .
+      dockerfile: src/Arise.Api/Dockerfile
+    environment:
+      # Chaîne de connexion composée à partir des mêmes variables que postgres.
+      # L'hôte « postgres » est le nom du service ; 5432 est le port interne au réseau compose.
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ASPNETCORE_HTTP_PORTS: "5006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5006:5006"
+
+volumes:
+  arise-postgres-data:

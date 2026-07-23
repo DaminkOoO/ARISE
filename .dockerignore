@@ -1,0 +1,27 @@
+# Le contexte de build est la racine du dépôt. On exclut tout ce qui n'a pas à
+# entrer dans l'image, à commencer par les artefacts de build de l'hôte : sans ça,
+# le « COPY src/ src/ » du Dockerfile aspirerait les bin/ et obj/ locaux dans l'image.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+
+# Contexte de versionnement et d'outillage, inutile au build
+.git/
+.gitignore
+.dockerignore
+**/Dockerfile
+docker-compose.yml
+
+# Secrets et config locale : ne doivent jamais entrer dans une image
+.env
+.env.*
+!.env.example
+**/appsettings.Development.json
+**/secrets.json
+**/*.pfx
+
+# Front, outils et docs hors périmètre de l'API
+tools/
+docs/
