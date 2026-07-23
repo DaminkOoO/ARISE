@@ -17,11 +17,11 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
 {
     private readonly HttpStatusCode _code;
     private readonly string _corps;
-    private readonly Exception? _panne;
+    private readonly Func<Exception>? _panne;
     private readonly List<RequeteCapturee> _requetes = [];
     private readonly Lock _verrou = new();
 
-    private FauxHttpMessageHandler(HttpStatusCode code, string corps, Exception? panne)
+    private FauxHttpMessageHandler(HttpStatusCode code, string corps, Func<Exception>? panne)
     {
         _code = code;
         _corps = corps;
@@ -34,10 +34,15 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
         HttpStatusCode code = HttpStatusCode.OK) => new(code, corps, panne: null);
 
     /// <summary>
-    /// Lève cette exception au lieu de répondre — <see cref="HttpRequestException"/> pour un
-    /// réseau injoignable, <see cref="TaskCanceledException"/> pour un délai dépassé.
+    /// Lève l'exception que rend cette fabrique au lieu de répondre —
+    /// <see cref="HttpRequestException"/> pour un réseau injoignable,
+    /// <see cref="TaskCanceledException"/> pour un délai dépassé.
+    ///
+    /// <para>Une fabrique et non une instance : relancer le même objet écrase sa trace de
+    /// pile à chaque appel, et un agent qui réessaie verrait deux fois la même exception,
+    /// le second échec effaçant le premier.</para>
     /// </summary>
-    public static FauxHttpMessageHandler Tombe(Exception panne) =>
+    public static FauxHttpMessageHandler Tombe(Func<Exception> panne) =>
         new(HttpStatusCode.OK, string.Empty, panne);
 
     /// <summary>
@@ -72,9 +77,15 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
     {
         // Le corps se lit maintenant : la requête est disposée dès le retour, et l'agent
         // aura pu y placer un flux qu'on ne pourrait plus relire ensuite.
+        //
+        // CancellationToken.None, délibérément : passer le jeton ferait lever cette lecture
+        // AVANT l'enregistrement dès que le corps n'est pas tamponné (StreamContent), et la
+        // requête serait perdue précisément dans le test de délai dépassé que ce transport
+        // existe pour couvrir. L'annulation est honorée juste après, une fois la capture
+        // faite.
         var corps = request.Content is null
             ? string.Empty
-            : await request.Content.ReadAsStringAsync(cancellationToken);
+            : await request.Content.ReadAsStringAsync(CancellationToken.None);
 
         lock (_verrou)
         {
@@ -87,7 +98,7 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
 
         if (_panne is not null)
         {
-            throw _panne;
+            throw _panne();
         }
 
         return new HttpResponseMessage(_code)

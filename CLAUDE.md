@@ -198,4 +198,9 @@ l'architecture depuis zéro à partir du code existant seul.
    - Aucune quête manquée ne doit être présentée de façon culpabilisante
 6. **Le scraper de courses reste un outil à part**, jamais dans le chemin de requête live de
    l'API — les prix sont des relevés horodatés, jamais présentés comme "en temps réel".
-7. **Tout le texte visible par l'utilisateur est en français.**
+7. **Tout le texte visible par l'utilisateur est en français**, et **au tutoiement** —
+   cohérent avec le ton « Système » de Solo Leveling, qui s'adresse au Chasseur directement.
+   Le premier message du produit l'a posé (« Ce nom de Chasseur est déjà pris. Choisis-en un
+   autre. ») ; ne mélange pas les deux registres d'un écran à l'autre. Le vocabulaire produit
+   dit « Chasseur », jamais « utilisateur » ni « pseudo » — l'anglais `Username` reste
+   confiné aux identifiants techniques.

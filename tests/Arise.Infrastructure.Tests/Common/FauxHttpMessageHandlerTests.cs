@@ -128,7 +128,7 @@ public class FauxHttpMessageHandlerTests
     [Fact]
     public async Task Leve_la_panne_configuree_au_lieu_de_repondre()
     {
-        var transport = FauxHttpMessageHandler.Tombe(new HttpRequestException("réseau injoignable"));
+        var transport = FauxHttpMessageHandler.Tombe(() => new HttpRequestException("réseau injoignable"));
 
         var acte = () => transport.Client().GetAsync("/v1/generer");
 
@@ -139,7 +139,7 @@ public class FauxHttpMessageHandlerTests
     [Fact]
     public async Task Capture_aussi_la_requete_qui_declenche_une_panne()
     {
-        var transport = FauxHttpMessageHandler.Tombe(new HttpRequestException("réseau injoignable"));
+        var transport = FauxHttpMessageHandler.Tombe(() => new HttpRequestException("réseau injoignable"));
 
         var acte = () => transport.Client().GetAsync("/v1/generer");
         await acte.Should().ThrowAsync<HttpRequestException>();
@@ -159,6 +159,40 @@ public class FauxHttpMessageHandlerTests
         var acte = () => transport.Client().GetAsync("/v1/generer", annulation.Token);
 
         await acte.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    // La capture doit survivre à un corps non tamponné. Avec un StreamContent, lire le corps
+    // sous le jeton d'annulation lève AVANT l'enregistrement : la requête est alors perdue
+    // précisément dans le test de délai dépassé que ce transport promet de couvrir.
+    [Fact]
+    public async Task Capture_la_requete_meme_sur_un_corps_en_flux_et_un_jeton_annule()
+    {
+        var transport = FauxHttpMessageHandler.Repond(CorpsJson);
+        using var annulation = new CancellationTokenSource();
+        await annulation.CancelAsync();
+        using var flux = new MemoryStream(Encoding.UTF8.GetBytes("""{"prompt":"Génère"}"""));
+
+        var acte = () => transport.Client().PostAsync(
+            "/v1/generer", new StreamContent(flux), annulation.Token);
+        await acte.Should().ThrowAsync<OperationCanceledException>();
+
+        transport.Requetes.Should().ContainSingle();
+    }
+
+    // Relancer la même instance écrase sa trace de pile à chaque appel : un agent qui
+    // réessaie verrait deux fois le même objet, et le second échec effacerait le premier.
+    [Fact]
+    public async Task Fabrique_une_panne_neuve_a_chaque_appel()
+    {
+        var transport = FauxHttpMessageHandler.Tombe(() => new HttpRequestException("réseau injoignable"));
+        var client = transport.Client();
+
+        var premiere = (await ((Func<Task>)(() => client.GetAsync("/premier")))
+            .Should().ThrowAsync<HttpRequestException>()).Which;
+        var seconde = (await ((Func<Task>)(() => client.GetAsync("/second")))
+            .Should().ThrowAsync<HttpRequestException>()).Which;
+
+        seconde.Should().NotBeSameAs(premiere);
     }
 
     [Fact]
