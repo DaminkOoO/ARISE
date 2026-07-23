@@ -114,20 +114,40 @@ public class LoginCommandHandlerTests
         _jetons.DidNotReceive().Generate(Arg.Any<User>());
     }
 
-    // Deux messages distincts diraient à qui essaie des noms au hasard lesquels existent.
+    // Comparer les deux messages entre eux ne prouverait rien : l'exception porte un message
+    // constant, donc les deux branches rendent littéralement la même chaîne dès lors que le
+    // type est le même — ce que Refuse_un_Chasseur_inconnu et Refuse_un_mot_de_passe_incorrect
+    // épinglent déjà. Ce qui peut réellement se casser, c'est qu'on rende le message
+    // « utile » en y glissant ce qui a échoué : ce sont ces deux tests-là qui rougissent.
     [Fact]
-    public async Task Dit_la_meme_chose_sur_un_nom_inconnu_et_sur_un_mot_de_passe_faux()
+    public async Task Ne_renvoie_pas_le_nom_soumis_dans_le_message_d_echec()
     {
-        _hacheur.Verify(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
-        var surMotDePasseFaux = (await ((Func<Task>)(() => Connecter()))
-            .Should().ThrowAsync<InvalidCredentialsException>()).Which.Message;
-
+        const string nomSoumis = "chasseur-que-personne-ne-doit-voir-repete";
         _chasseurs.FindByUsernameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((User?)null);
-        var surNomInconnu = (await ((Func<Task>)(() => Connecter()))
-            .Should().ThrowAsync<InvalidCredentialsException>()).Which.Message;
 
-        surNomInconnu.Should().Be(surMotDePasseFaux);
+        var acte = () => Connecter(nomUtilisateur: nomSoumis);
+
+        (await acte.Should().ThrowAsync<InvalidCredentialsException>())
+            .Which.Message.Should().NotContain(nomSoumis);
+    }
+
+    // Un message qui désigne le champ fautif fait de la connexion un oracle de noms
+    // existants, même si les deux branches lèvent le même type d'exception.
+    [Theory]
+    [InlineData("inconnu")]
+    [InlineData("existe")]
+    [InlineData("introuvable")]
+    [InlineData("n'existe pas")]
+    public async Task Ne_designe_pas_le_champ_fautif_dans_le_message_d_echec(string indice)
+    {
+        _chasseurs.FindByUsernameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((User?)null);
+
+        var acte = () => Connecter();
+
+        (await acte.Should().ThrowAsync<InvalidCredentialsException>())
+            .Which.Message.Should().NotContainEquivalentOf(indice);
     }
 
     // Le message remonte jusqu'à l'écran : règle non négociable n°7.
