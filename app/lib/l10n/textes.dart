@@ -14,6 +14,14 @@ abstract final class Textes {
   static const String quetesDuJour = 'Quêtes du jour';
   static const String niveauCourt = 'NIV';
 
+  // Éveil / onboarding.
+  static const String systeme = '[Système]';
+  static const String eveilTitre = "L'ÉVEIL A COMMENCÉ";
+  static const String entrerDansLeSysteme = 'Entrer dans le Système';
+
+  static String chasseurCree(String rang) =>
+      'Chasseur créé. Rang de départ : $rang.';
+
   // Accueil.
   static const String serieActuelle = 'Série actuelle';
 
