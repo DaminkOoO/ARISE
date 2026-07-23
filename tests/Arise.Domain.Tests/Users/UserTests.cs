@@ -68,6 +68,59 @@ public class UserTests
         acte.Should().Throw<ArgumentException>();
     }
 
+    // La borne haute est une invariante de l'entité, pas seulement une règle de formulaire :
+    // la colonne est un character varying(32). Tout chemin d'écriture qui ne passe pas par
+    // RegisterUserCommand — seed, import, onboarding généré par un agent — construirait
+    // sinon un User que le Domain accepte et que PostgreSQL refuse au SaveChangesAsync,
+    // loin du site fautif.
+    [Fact]
+    public void Register_refuse_un_nom_d_utilisateur_trop_long()
+    {
+        var acte = () => Inscrire(nomUtilisateur: new string('a', 33));
+
+        acte.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Register_accepte_un_nom_d_utilisateur_a_la_borne_haute()
+    {
+        Inscrire(nomUtilisateur: new string('a', 32)).Username.Should().HaveLength(32);
+    }
+
+    [Fact]
+    public void Register_refuse_un_nom_d_utilisateur_trop_court()
+    {
+        var acte = () => Inscrire(nomUtilisateur: "ab");
+
+        acte.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Register_accepte_un_nom_d_utilisateur_a_la_borne_basse()
+    {
+        Inscrire(nomUtilisateur: "abc").Username.Should().Be("abc");
+    }
+
+    // Les bornes portent sur le nom rogné, qui est celui du compte.
+    [Fact]
+    public void Register_mesure_les_bornes_du_nom_une_fois_rogne()
+    {
+        Inscrire(nomUtilisateur: "  " + new string('a', 32) + "  ")
+            .Username.Should().HaveLength(32);
+    }
+
+    // Npgsql refuse d'écrire un DateTimeOffset d'offset non nul dans un
+    // timestamp with time zone. Sans cette garde, la panne sort au SaveChangesAsync, loin de
+    // l'appelant qui a passé un DateTimeOffset.Now.
+    [Fact]
+    public void Register_refuse_un_instant_d_inscription_d_offset_non_nul()
+    {
+        var acte = () => User.Register(
+            NomUtilisateur, Empreinte, new DateTimeOffset(2026, 7, 23, 11, 0, 0, TimeSpan.FromHours(2)));
+
+        acte.Should().Throw<ArgumentException>();
+    }
+
     // Une empreinte vide passerait le stockage sans bruit, et toute vérification ultérieure
     // se ferait alors contre rien.
     [Theory]

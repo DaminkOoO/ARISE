@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Arise.Domain.Users;
 using FluentValidation;
 
 namespace Arise.Application.Features.Auth.Commands.RegisterUser;
@@ -29,15 +30,15 @@ public sealed partial class RegisterUserCommandValidator
             .Must(nom => nom.Length <= PolitiqueIdentifiants.LongueurMaximaleNomBrut)
                 .WithMessage(
                     "Le nom de Chasseur ne peut pas dépasser "
-                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.")
-            .Must(nom => nom.Trim().Length >= PolitiqueIdentifiants.LongueurMinimaleNom)
+                    + $"{User.LongueurMaximaleNom} caractères.")
+            .Must(nom => nom.Trim().Length >= User.LongueurMinimaleNom)
                 .WithMessage(
                     "Le nom de Chasseur doit contenir au moins "
-                    + $"{PolitiqueIdentifiants.LongueurMinimaleNom} caractères.")
-            .Must(nom => nom.Trim().Length <= PolitiqueIdentifiants.LongueurMaximaleNom)
+                    + $"{User.LongueurMinimaleNom} caractères.")
+            .Must(nom => nom.Trim().Length <= User.LongueurMaximaleNom)
                 .WithMessage(
                     "Le nom de Chasseur ne peut pas dépasser "
-                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.")
+                    + $"{User.LongueurMaximaleNom} caractères.")
             .Must(nom => NomAutorise().IsMatch(nom.Trim()))
                 .WithMessage(
                     "Le nom de Chasseur ne peut contenir que des lettres, des chiffres, "

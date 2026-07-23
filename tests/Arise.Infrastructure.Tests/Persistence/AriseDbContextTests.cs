@@ -1,4 +1,3 @@
-using Arise.Application.Features.Auth;
 using Arise.Domain.Users;
 using Arise.Infrastructure;
 using Arise.Infrastructure.Persistence;
@@ -93,7 +92,7 @@ public class AriseDbContextTests
     public void Borne_la_longueur_du_nom_du_Chasseur_comme_le_validator()
     {
         Propriete(nameof(User.Username)).GetMaxLength()
-            .Should().Be(PolitiqueIdentifiants.LongueurMaximaleNom);
+            .Should().Be(User.LongueurMaximaleNom);
     }
 
     [Theory]

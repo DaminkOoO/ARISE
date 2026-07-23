@@ -1,4 +1,3 @@
-using Arise.Application.Features.Auth;
 using Arise.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -15,7 +14,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             // Le même plafond que le validator : une colonne plus étroite tronquerait un
             // nom que l'inscription vient d'accepter.
-            .HasMaxLength(PolitiqueIdentifiants.LongueurMaximaleNom)
+            .HasMaxLength(User.LongueurMaximaleNom)
             // Le nom sert d'identifiant de connexion : « Sung » et « sung » doivent désigner
             // le même Chasseur, à l'index unique comme à la recherche.
             .UseCollation(AriseDbContext.CollationInsensibleALaCasse);

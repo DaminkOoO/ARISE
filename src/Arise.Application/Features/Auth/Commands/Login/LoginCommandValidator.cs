@@ -1,3 +1,4 @@
+using Arise.Domain.Users;
 using FluentValidation;
 
 namespace Arise.Application.Features.Auth.Commands.Login;
@@ -29,7 +30,7 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
             .MaximumLength(PolitiqueIdentifiants.LongueurMaximaleNomBrut)
                 .WithMessage(
                     "Le nom de Chasseur ne peut pas dépasser "
-                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.");
+                    + $"{User.LongueurMaximaleNom} caractères.");
 
         // Vérifier une empreinte coûte autant que la calculer : la route de connexion étant
         // ouverte sans authentification, le plafond de l'inscription vaut ici aussi.
