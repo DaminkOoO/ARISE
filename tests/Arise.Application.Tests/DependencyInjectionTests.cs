@@ -71,6 +71,36 @@ public class DependencyInjectionTests
         resultat.Should().Be(PipelineValidationProbeHandler.Reponse);
     }
 
+    // Les handlers datent ce qu'ils écrivent depuis une TimeProvider injectée, pour rester
+    // testables à horloge figée. Sans enregistrement par défaut, RegisterUserCommandHandler
+    // ne se construit pas — et l'échec n'apparaît qu'à la première requête reçue.
+    [Fact]
+    public void Fournit_une_horloge_par_defaut()
+    {
+        Provider().GetService<TimeProvider>().Should().Be(TimeProvider.System);
+    }
+
+    // L'hôte doit pouvoir figer l'horloge — un test de bout en bout sur une série de jours
+    // ne peut pas attendre minuit.
+    [Fact]
+    public void Laisse_l_hote_substituer_son_horloge()
+    {
+        var horloge = new HorlogeFigee();
+
+        using var provider = new ServiceCollection()
+            .AddSingleton<TimeProvider>(horloge)
+            .AddApplication()
+            .BuildServiceProvider();
+
+        provider.GetService<TimeProvider>().Should().BeSameAs(horloge);
+    }
+
+    private sealed class HorlogeFigee : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() =>
+            new(2026, 7, 23, 9, 0, 0, TimeSpan.Zero);
+    }
+
     // Règle non négociable n°7 : tout texte visible par l'utilisateur est en français,
     // messages de validation compris — ils remontent jusqu'à l'écran. Le gabarit traduit
     // ne suffit pas : le {PropertyName} interpolé dedans en fait partie.

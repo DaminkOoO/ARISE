@@ -33,6 +33,12 @@ public static class DependencyInjection
         ValidatorOptions.Global.DisplayNameResolver =
             (_, membre, expression) => ResolveurNomAffichable.Resoudre(membre, expression);
 
+        // Les handlers datent ce qu'ils écrivent depuis cette horloge plutôt que depuis
+        // DateTimeOffset.UtcNow, pour rester testables à instant figé. TryAdd, et non Add :
+        // un hôte qui a déjà posé la sienne — un test de bout en bout sur une série de jours
+        // ne peut pas attendre minuit — garde la sienne.
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddMediatR(configuration =>
             configuration.RegisterServicesFromAssembly(AssemblyApplication));
 
