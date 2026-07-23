@@ -71,4 +71,64 @@ public class AuthEndpointsTests(ApiFixture api)
 
         reponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Connecte_un_Chasseur_avec_les_bons_identifiants()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Sung");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/login",
+            new { Username = nom, Password = MotDePasse });
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Remet_un_jeton_non_vide_a_la_connexion()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Cha");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/login",
+            new { Username = nom, Password = MotDePasse });
+
+        var corps = await reponse.Content.ReadFromJsonAsync<ReponseLogin>();
+        corps!.AccessToken.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Date_l_expiration_du_jeton_dans_le_futur()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Yoo");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/login",
+            new { Username = nom, Password = MotDePasse });
+
+        var corps = await reponse.Content.ReadFromJsonAsync<ReponseLogin>();
+        corps!.ExpiresAt.Should().BeAfter(DateTimeOffset.UtcNow);
+    }
+
+    [Fact]
+    public async Task Refuse_un_mauvais_mot_de_passe_en_401()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Jin");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/login",
+            new { Username = nom, Password = "mauvais-mot-de-passe" });
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private sealed record ReponseLogin(string AccessToken, DateTimeOffset ExpiresAt);
 }

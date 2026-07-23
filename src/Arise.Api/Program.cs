@@ -1,5 +1,6 @@
 using Arise.Api;
 using Arise.Application;
+using Arise.Application.Features.Auth.Commands.Login;
 using Arise.Application.Features.Auth.Commands.RegisterUser;
 using Arise.Infrastructure;
 using Arise.Infrastructure.Auth;
@@ -43,6 +44,14 @@ app.MapPost("/auth/register", async (RegisterUserCommand commande, ISender media
 {
     var resultat = await mediateur.Send(commande);
     return Results.Created((string?)null, resultat);
+});
+
+// Connexion : rend le jeton et sa péremption. Un échec (nom inconnu ou mot de passe faux)
+// lève InvalidCredentialsException, traduite en 401 sans dire lequel des deux est en cause.
+app.MapPost("/auth/login", async (LoginCommand commande, ISender mediateur) =>
+{
+    var resultat = await mediateur.Send(commande);
+    return Results.Ok(resultat);
 });
 
 app.Run();
