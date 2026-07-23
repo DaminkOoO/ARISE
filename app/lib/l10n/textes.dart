@@ -26,6 +26,21 @@ abstract final class Textes {
   static String chasseurCree(String rang) =>
       'Chasseur créé. Rang de départ : $rang.';
 
+  // Authentification.
+  static const String connexion = 'Connexion';
+  static const String inscription = 'Inscription';
+  static const String seConnecter = 'Se connecter';
+  static const String seEveiller = "S'éveiller";
+  static const String sInscrire = "S'inscrire";
+  static const String jaiDejaUnCompte = "J'ai déjà un compte";
+  static const String nomChasseur = 'Nom de Chasseur';
+  static const String motDePasse = 'Mot de passe';
+  static const String nomChasseurVide = 'Renseigne ton nom de Chasseur.';
+  static const String motDePasseVide = 'Renseigne ton mot de passe.';
+  static const String identifiantsRefuses =
+      'Identifiants refusés. Vérifie ton nom de Chasseur et ton mot de passe.';
+  static const String authAccroche = 'Le Système attend ton éveil.';
+
   // Sport.
   static const String sportTitre = 'SPORT';
   static const String queteDuJour = '[Quête du Jour]';
