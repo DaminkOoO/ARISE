@@ -27,6 +27,11 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, EfUserRepository>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
+        // L'émetteur de jetons est sans état : il lit ses paramètres via IOptions<JwtOptions>
+        // et date depuis la TimeProvider partagée. La section Jwt de la configuration est liée
+        // côté API (Program), là où le middleware JwtBearer lit la même clé pour valider.
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+
         return services;
     }
 }

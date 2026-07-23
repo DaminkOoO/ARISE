@@ -37,6 +37,11 @@
       Core 10.0.10 du dépôt.
     -->
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
+    <!--
+      Signature et écriture des JWT (HS256) par JwtTokenGenerator. Le middleware JwtBearer qui
+      les valide vit côté API et tire la même ligne Microsoft.IdentityModel 8.x transitivement.
+    -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
   </ItemGroup>
 
   <ItemGroup>

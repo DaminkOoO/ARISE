@@ -36,4 +36,15 @@ public class DependencyInjectionTests
         descripteur.ImplementationType.Should().Be(typeof(PasswordHasher));
         descripteur.Lifetime.Should().Be(ServiceLifetime.Singleton);
     }
+
+    // L'émetteur de jetons est sans état lui aussi : il ne dépend que d'options et d'une
+    // horloge, toutes deux singletons.
+    [Fact]
+    public void Branche_l_emetteur_de_jetons_sur_l_implementation_JWT()
+    {
+        var descripteur = Cablage().Single(service => service.ServiceType == typeof(IJwtTokenGenerator));
+
+        descripteur.ImplementationType.Should().Be(typeof(JwtTokenGenerator));
+        descripteur.Lifetime.Should().Be(ServiceLifetime.Singleton);
+    }
 }

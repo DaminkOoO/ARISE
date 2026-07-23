@@ -10,6 +10,8 @@
       ligne en la croyant redondante tant que le paquet parent n'aura pas relevé sa borne.
     -->
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <!-- Valide les JWT émis par JwtTokenGenerator (Infrastructure) sur l'endpoint protégé. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
