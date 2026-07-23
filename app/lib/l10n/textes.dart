@@ -18,6 +18,10 @@ abstract final class Textes {
   static const String systeme = '[Système]';
   static const String eveilTitre = "L'ÉVEIL A COMMENCÉ";
   static const String entrerDansLeSysteme = 'Entrer dans le Système';
+  static const String objectifQuestion = 'Quel est ton objectif ?';
+  static const String objectifSousTitre =
+      'Le Système ajustera tes quêtes en conséquence.';
+  static const String continuer = 'Continuer';
 
   static String chasseurCree(String rang) =>
       'Chasseur créé. Rang de départ : $rang.';
