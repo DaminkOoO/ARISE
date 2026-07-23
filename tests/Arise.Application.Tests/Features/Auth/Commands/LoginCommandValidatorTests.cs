@@ -65,6 +65,15 @@ public class LoginCommandValidatorTests
         Valide(motDePasse: motDePasse).IsValid.Should().BeTrue();
     }
 
+    // Le handler rogne le nom avant de chercher le compte : le même vecteur qu'à
+    // l'inscription, sur une route tout aussi ouverte.
+    [Fact]
+    public void Refuse_un_nom_de_Chasseur_noye_dans_les_espaces()
+    {
+        Valide(nomUtilisateur: new string(' ', 100_000) + NomValide)
+            .IsValid.Should().BeFalse();
+    }
+
     [Fact]
     public void N_impose_aucun_format_au_nom_de_Chasseur()
     {

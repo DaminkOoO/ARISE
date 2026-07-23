@@ -24,6 +24,12 @@ public sealed partial class RegisterUserCommandValidator
         RuleFor(commande => commande.Username)
             .Must(nom => !string.IsNullOrWhiteSpace(nom))
                 .WithMessage("Le nom de Chasseur est obligatoire.")
+            // Avant tout Trim() : c'est ce contrôle qui empêche d'allouer une copie d'un nom
+            // démesuré, il ne doit donc rien allouer lui-même.
+            .Must(nom => nom.Length <= PolitiqueIdentifiants.LongueurMaximaleNomBrut)
+                .WithMessage(
+                    "Le nom de Chasseur ne peut pas dépasser "
+                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.")
             .Must(nom => nom.Trim().Length >= PolitiqueIdentifiants.LongueurMinimaleNom)
                 .WithMessage(
                     "Le nom de Chasseur doit contenir au moins "

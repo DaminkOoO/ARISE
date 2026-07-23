@@ -95,6 +95,26 @@ public class RegisterUserCommandValidatorTests
         Valide(nomUtilisateur: nomUtilisateur).IsValid.Should().BeTrue();
     }
 
+    // Le plafond de 32 porte sur le nom rogné : sans plafond sur le brut, un nom précédé de
+    // 25 Mo d'espaces passe la validation, et chaque Trim() du chemin en alloue une copie.
+    // C'est exactement l'argument qui plafonne le mot de passe, appliqué au nom.
+    [Fact]
+    public void Refuse_un_nom_de_Chasseur_noye_dans_les_espaces()
+    {
+        var resultat = Valide(nomUtilisateur: new string(' ', 100_000) + NomValide);
+
+        resultat.IsValid.Should().BeFalse();
+    }
+
+    // Le plafond du brut doit laisser passer ce que le rognage rend valide : quelques
+    // espaces de bordure sont une saisie ordinaire, pas une attaque.
+    [Fact]
+    public void Tolere_des_espaces_de_bordure_en_quantite_raisonnable()
+    {
+        Valide(nomUtilisateur: new string(' ', 8) + NomValide + new string(' ', 8))
+            .IsValid.Should().BeTrue();
+    }
+
     [Fact]
     public void Refuse_un_mot_de_passe_vide()
     {

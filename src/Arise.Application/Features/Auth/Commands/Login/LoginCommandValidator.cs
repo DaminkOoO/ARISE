@@ -17,9 +17,19 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
     {
         RuleLevelCascadeMode = CascadeMode.Stop;
 
+        // Le handler rogne le nom avant de chercher le compte : le même plafond qu'à
+        // l'inscription s'impose donc ici, et pour la même raison — sans lui, un nom précédé
+        // de 25 Mo d'espaces fait allouer autant, sur une route ouverte sans
+        // authentification. Ce n'est pas rejouer la politique de nommage : c'est une borne
+        // d'allocation, et elle vaut aussi pour un compte créé sous une politique
+        // antérieure.
         RuleFor(commande => commande.Username)
             .NotEmpty()
-                .WithMessage("Le nom de Chasseur est obligatoire.");
+                .WithMessage("Le nom de Chasseur est obligatoire.")
+            .MaximumLength(PolitiqueIdentifiants.LongueurMaximaleNomBrut)
+                .WithMessage(
+                    "Le nom de Chasseur ne peut pas dépasser "
+                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.");
 
         // Vérifier une empreinte coûte autant que la calculer : la route de connexion étant
         // ouverte sans authentification, le plafond de l'inscription vaut ici aussi.
