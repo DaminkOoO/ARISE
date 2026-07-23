@@ -11,16 +11,6 @@ namespace Arise.Application.Features.Auth.Commands.RegisterUser;
 public sealed partial class RegisterUserCommandValidator
     : AbstractValidator<RegisterUserCommand>
 {
-    public const int LongueurMinimaleNom = 3;
-    public const int LongueurMaximaleNom = 32;
-    public const int LongueurMinimaleMotDePasse = 8;
-
-    /// <summary>
-    /// Hacher est coûteux par construction : sans plafond, une requête non authentifiée
-    /// portant un mot de passe démesuré fait payer le serveur.
-    /// </summary>
-    public const int LongueurMaximaleMotDePasse = 128;
-
     public RegisterUserCommandValidator()
     {
         // Sans Stop, un nom vide échoue à la fois sur NotEmpty et sur la longueur minimale,
@@ -34,12 +24,14 @@ public sealed partial class RegisterUserCommandValidator
         RuleFor(commande => commande.Username)
             .Must(nom => !string.IsNullOrWhiteSpace(nom))
                 .WithMessage("Le nom de Chasseur est obligatoire.")
-            .Must(nom => nom.Trim().Length >= LongueurMinimaleNom)
+            .Must(nom => nom.Trim().Length >= PolitiqueIdentifiants.LongueurMinimaleNom)
                 .WithMessage(
-                    $"Le nom de Chasseur doit contenir au moins {LongueurMinimaleNom} caractères.")
-            .Must(nom => nom.Trim().Length <= LongueurMaximaleNom)
+                    "Le nom de Chasseur doit contenir au moins "
+                    + $"{PolitiqueIdentifiants.LongueurMinimaleNom} caractères.")
+            .Must(nom => nom.Trim().Length <= PolitiqueIdentifiants.LongueurMaximaleNom)
                 .WithMessage(
-                    $"Le nom de Chasseur ne peut pas dépasser {LongueurMaximaleNom} caractères.")
+                    "Le nom de Chasseur ne peut pas dépasser "
+                    + $"{PolitiqueIdentifiants.LongueurMaximaleNom} caractères.")
             .Must(nom => NomAutorise().IsMatch(nom.Trim()))
                 .WithMessage(
                     "Le nom de Chasseur ne peut contenir que des lettres, des chiffres, "
@@ -51,12 +43,14 @@ public sealed partial class RegisterUserCommandValidator
         RuleFor(commande => commande.Password)
             .NotEmpty()
                 .WithMessage("Le mot de passe est obligatoire.")
-            .MinimumLength(LongueurMinimaleMotDePasse)
+            .MinimumLength(PolitiqueIdentifiants.LongueurMinimaleMotDePasse)
                 .WithMessage(
-                    $"Le mot de passe doit contenir au moins {LongueurMinimaleMotDePasse} caractères.")
-            .MaximumLength(LongueurMaximaleMotDePasse)
+                    "Le mot de passe doit contenir au moins "
+                    + $"{PolitiqueIdentifiants.LongueurMinimaleMotDePasse} caractères.")
+            .MaximumLength(PolitiqueIdentifiants.LongueurMaximaleMotDePasse)
                 .WithMessage(
-                    $"Le mot de passe ne peut pas dépasser {LongueurMaximaleMotDePasse} caractères.");
+                    "Le mot de passe ne peut pas dépasser "
+                    + $"{PolitiqueIdentifiants.LongueurMaximaleMotDePasse} caractères.");
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using Arise.Application.Features.Auth.Commands.RegisterUser;
 using FluentValidation;
 
 namespace Arise.Application.Features.Auth.Commands.Login;
@@ -23,15 +22,13 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
                 .WithMessage("Le nom de Chasseur est obligatoire.");
 
         // Vérifier une empreinte coûte autant que la calculer : la route de connexion étant
-        // ouverte sans authentification, le plafond de l'inscription vaut ici aussi. Il est
-        // repris de RegisterUserCommandValidator plutôt que redéclaré — deux plafonds qui
-        // divergent laisseraient un mot de passe inscriptible mais plus utilisable.
+        // ouverte sans authentification, le plafond de l'inscription vaut ici aussi.
         RuleFor(commande => commande.Password)
             .NotEmpty()
                 .WithMessage("Le mot de passe est obligatoire.")
-            .MaximumLength(RegisterUserCommandValidator.LongueurMaximaleMotDePasse)
+            .MaximumLength(PolitiqueIdentifiants.LongueurMaximaleMotDePasse)
                 .WithMessage(
                     "Le mot de passe ne peut pas dépasser "
-                    + $"{RegisterUserCommandValidator.LongueurMaximaleMotDePasse} caractères.");
+                    + $"{PolitiqueIdentifiants.LongueurMaximaleMotDePasse} caractères.");
     }
 }
