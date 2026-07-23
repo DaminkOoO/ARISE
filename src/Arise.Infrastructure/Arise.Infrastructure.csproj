@@ -6,15 +6,25 @@
 
   <ItemGroup>
     <!--
-      Référence explicite, et non redondante : Microsoft.EntityFrameworkCore.Design est
+      Références explicites, et non redondantes : Microsoft.EntityFrameworkCore.Design est
       marqué PrivateAssets=all (outillage de conception, il n'a rien à faire chez les
-      consommateurs). Il tire EF Core 10.0.10, que ce marquage empêche justement de
+      consommateurs). Il tire la ligne EF Core 10.0.10, que ce marquage empêche justement de
       transiter. Les projets en aval ne voyaient donc que le 10.0.4 tiré par Npgsql, et ne
       pouvaient plus compiler contre un Arise.Infrastructure bâti sur 10.0.10 (CS1705).
-      Cette ligne aligne tout le monde sur une seule version. Ne pas la supprimer en la
-      croyant superflue.
+
+      Les DEUX paquets doivent être épinglés. N'épingler que Microsoft.EntityFrameworkCore
+      laissait Relational désaligné : Arise.Infrastructure compilait contre Relational
+      10.0.10 pendant que Arise.Api en chargeait la 10.0.4 (MSB3277, « 10.0.4 was chosen
+      because it was primary »). Le chargeur .NET résout par nom simple et tolère cette
+      rétrogradation sans broncher — l'échec ne serait sorti qu'en MissingMethodException au
+      premier AddInfrastructure(), au démarrage de l'API, jamais au build ni en test.
+
+      Vérification : dotnet build ne doit émettre aucun MSB3277. Si un troisième paquet de
+      la ligne EF Core entre un jour par ce chemin, c'est le moment de passer la solution en
+      Central Package Management plutôt que d'allonger cette liste.
     -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
