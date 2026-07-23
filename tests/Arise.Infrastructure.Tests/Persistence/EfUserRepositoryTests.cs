@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Users;
 using Arise.Infrastructure.Persistence;
 using FluentAssertions;
@@ -111,6 +112,29 @@ public class EfUserRepositoryTests(PostgresFixture postgres)
             .ExistsWithUsernameAsync(nom.ToLowerInvariant(), CancellationToken.None);
 
         existe.Should().BeTrue();
+    }
+
+    // La vérification préalable du handler ne tranche pas une course entre deux inscriptions
+    // homographes simultanées : c'est l'index unique qui la tranche, au SaveChanges. Quand il se
+    // déclenche, le repository doit remonter l'exception métier française (affichée en 409), pas
+    // une DbUpdateException Npgsql brute qui retomberait sur un 500 nu.
+    [Fact]
+    public async Task Traduit_une_violation_d_unicite_en_conflit_de_nom()
+    {
+        var nom = NomUnique("Sung");
+
+        await using (var premier = postgres.Fournisseur())
+        {
+            await premier.GetRequiredService<IUserRepository>()
+                .AddAsync(User.Register(nom, "empreinte-scellée", Inscrit), CancellationToken.None);
+        }
+
+        // Un second Chasseur, Id distinct, même nom : l'insertion viole l'index unique.
+        await using var second = postgres.Fournisseur();
+        var acte = () => second.GetRequiredService<IUserRepository>()
+            .AddAsync(User.Register(nom, "autre-empreinte", Inscrit), CancellationToken.None);
+
+        await acte.Should().ThrowAsync<UsernameAlreadyTakenException>();
     }
 
     [Fact]

@@ -1,6 +1,8 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Users;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Arise.Infrastructure.Persistence;
 
@@ -31,6 +33,19 @@ internal sealed class EfUserRepository(AriseDbContext context) : IUserRepository
     public async Task AddAsync(User user, CancellationToken cancellationToken)
     {
         await context.Users.AddAsync(user, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        // La vérification préalable du handler ne couvre pas une course entre deux inscriptions
+        // homographes : c'est l'index unique qui tranche vraiment, et il le fait ici, par une
+        // violation 23505. On la traduit dans le vocabulaire métier — le bord HTTP sait afficher
+        // ce conflit en 409 français, là où une DbUpdateException nue retomberait sur un 500 nu.
+        catch (DbUpdateException exception)
+            when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new UsernameAlreadyTakenException();
+        }
     }
 }
