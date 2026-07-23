@@ -1,3 +1,5 @@
+using Arise.Application.Common.Abstractions;
+using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +21,11 @@ public static class DependencyInjection
             // La convention est posée ici, sur le même chemin que celui de l'API : la
             // déclarer à côté du modèle dans un test aurait éprouvé le test, pas le câblage.
             .UseSnakeCaseNamingConvention());
+
+        // Le repository suit la durée de vie du DbContext (scoped) dont il dépend ; le hacheur
+        // est sans état, une seule instance suffit.
+        services.AddScoped<IUserRepository, EfUserRepository>();
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         return services;
     }
