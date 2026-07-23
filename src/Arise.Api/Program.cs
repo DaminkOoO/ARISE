@@ -1,3 +1,4 @@
+using Arise.Api;
 using Arise.Application;
 using Arise.Application.Features.Auth.Commands.RegisterUser;
 using Arise.Infrastructure;
@@ -8,6 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
+
+// Les exceptions métier deviennent des ProblemDetails français au bon code HTTP.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<AuthExceptionHandler>();
 
 // La clé est celle qu'injecte docker-compose (ConnectionStrings__Postgres) ; absente, mieux
 // vaut échouer au démarrage avec un message clair que plus tard sur la première requête.
@@ -22,6 +27,8 @@ builder.Services.AddInfrastructure(chaineDeConnexion);
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

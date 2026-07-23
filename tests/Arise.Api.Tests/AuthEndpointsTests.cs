@@ -28,4 +28,47 @@ public class AuthEndpointsTests(ApiFixture api)
 
         reponse.StatusCode.Should().Be(HttpStatusCode.Created);
     }
+
+    [Fact]
+    public async Task Refuse_une_inscription_sur_un_nom_deja_pris_en_409()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Igris");
+
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/register",
+            new { Username = nom, Password = MotDePasse });
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Explique_le_conflit_de_nom_en_francais()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Beru");
+
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/register",
+            new { Username = nom, Password = MotDePasse });
+
+        var corps = await reponse.Content.ReadAsStringAsync();
+        corps.Should().Contain("Ce nom de Chasseur est déjà pris");
+    }
+
+    [Fact]
+    public async Task Refuse_une_inscription_invalide_en_400()
+    {
+        var client = api.CreateClient();
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/register",
+            new { Username = NomUnique("Tank"), Password = "" });
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }
