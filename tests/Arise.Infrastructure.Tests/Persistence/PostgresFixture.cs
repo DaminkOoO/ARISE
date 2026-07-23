@@ -20,7 +20,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 {
     // Image épinglée : la suite ne dépend pas de la dernière balise disponible sur la machine.
     private readonly PostgreSqlContainer conteneur =
-        new PostgreSqlBuilder().WithImage("postgres:17-alpine").Build();
+        new PostgreSqlBuilder("postgres:17-alpine").Build();
 
     public async Task InitializeAsync()
     {
