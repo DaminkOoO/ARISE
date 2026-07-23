@@ -162,6 +162,9 @@ public class AuthEndpointsTests(ApiFixture api)
 
         var corps = await reponse.Content.ReadFromJsonAsync<ReponseMoi>();
         corps!.Username.Should().Be(nom);
+        // L'Id porté par le claim « sub » remonte bien, non vide : un claim mal relu retomberait
+        // sur Guid.Empty (ou lèverait) plutôt que sur l'identité réelle du Chasseur.
+        corps.UserId.Should().NotBeEmpty();
     }
 
     [Fact]
@@ -170,6 +173,42 @@ public class AuthEndpointsTests(ApiFixture api)
         var client = api.CreateClient();
 
         var reponse = await client.GetAsync("/auth/moi");
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // Chemin le plus sensible côté sécurité : un nom jamais inscrit ne doit pas se distinguer
+    // d'un mauvais mot de passe. Même 401, sans dire lequel des deux champs est en cause.
+    [Fact]
+    public async Task Refuse_un_nom_de_Chasseur_inconnu_en_401()
+    {
+        var client = api.CreateClient();
+
+        var reponse = await client.PostAsJsonAsync(
+            "/auth/login",
+            new { Username = NomUnique("Fantome"), Password = MotDePasse });
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // Un jeton présent mais mal signé (signature cassée, ou signé d'une autre clé) doit être
+    // rejeté, pas seulement un jeton absent : c'est ce sens qui attrape une divergence de
+    // configuration entre l'émetteur et le valideur.
+    [Fact]
+    public async Task Refuse_l_endpoint_protege_avec_un_jeton_mal_signe_en_401()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Sung");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+        var connexion = await client.PostAsJsonAsync("/auth/login", new { Username = nom, Password = MotDePasse });
+        var jeton = (await connexion.Content.ReadFromJsonAsync<ReponseLogin>())!.AccessToken;
+
+        // Corps du jeton intact, signature cassée : les quatre derniers caractères remplacés.
+        var altere = jeton[..^4] + "XXXX";
+        var requete = new HttpRequestMessage(HttpMethod.Get, "/auth/moi");
+        requete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", altere);
+
+        var reponse = await client.SendAsync(requete);
 
         reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
