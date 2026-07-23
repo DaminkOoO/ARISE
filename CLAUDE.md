@@ -183,6 +183,69 @@ instance et n'en dépendent pas — mais Docker doit tourner.
 Consulte le document pertinent avant d'implémenter une fonctionnalité — ne redevine pas
 l'architecture depuis zéro à partir du code existant seul.
 
+## Charte visuelle — « la fenêtre du Système », pas un dashboard SaaS
+
+L'écueil à éviter est un rendu **plat et générique** (« dashboard SaaS sombre »). La structure
+et les couleurs ci-dessous sont acquises ; ce qui fait la différence, c'est le **contraste
+typographique**, la **signature HUD**, la **lueur** et la **texture de fond**. Tout nouvel écran
+respecte ces règles avant toute variation.
+
+### 1. Contraste typographique — trois rôles stricts, jamais une seule police
+
+- **Chiffres et titres** (nom du Chasseur, niveau, XP, valeurs de stats, montants en €) :
+  **Rajdhani 700**, letter-spacing 0.5–1px. Visiblement plus imposants et plus « techniques »
+  que le reste — augmente la taille si besoin pour créer un vrai contraste.
+- **Texte courant** (descriptions de quêtes, messages du Système, corps) : **Inter 400–500**,
+  discret, ne concurrence pas les titres.
+- **Étiquettes système et métadonnées** (`[RAPPORT DU SYSTÈME]`, `[QUÊTE DU JOUR]`, timestamps,
+  labels de stats FOR/VIT/INT/OR/PER) : **JetBrains Mono**, MAJUSCULES, 9–10px, letter-spacing
+  1–2px, couleur `--text-dim` (`#8B98A8`).
+
+### 2. Signature HUD — coins en viseur, pas de bordure arrondie
+
+Chaque carte/panneau principal (rapport quotidien, badge de rang, cartes de quêtes/transactions)
+porte **4 petits crochets en L** aux coins : ~12–14px, épaisseur 2px, couleur d'accent du
+panneau, en léger débord comme un viseur de jeu vidéo. C'est **l'élément signature**, présent sur
+**tous** les écrans, pas seulement l'accueil.
+
+### 3. Lueur (glow) réelle — rien ne doit paraître plat
+
+`box-shadow` lumineux (blur 15–25px, opacité ~30–45%, couleur = accent de l'élément) sur : le
+badge de rang hexagonal, les barres de stats remplies, la bordure de la carte « Rapport
+Quotidien », et tout élément actif de la barre de navigation.
+
+### 4. Texture de fond — grille HUD discrète
+
+Remplace le fond uni par : un **dégradé radial** très subtil (lueur bleue ~10–15% d'opacité)
+centré en haut de l'écran, superposé à une **grille fine** (lignes ~1–2% d'opacité, espacées de
+~24px). Discret, jamais distrayant.
+
+### Hiérarchie — les éléments « héros » dominent
+
+Nom + rang du Chasseur, carte « Rapport Quotidien », badge hexagonal : **plus grands, plus
+lumineux, traitement plus riche** que les éléments de liste (quêtes, transactions, habitudes),
+qui restent **compacts et sobres**. Un poids visuel uniforme est ce qui produit l'effet
+« template » à bannir.
+
+### Jetons de couleur (acquis — à conserver)
+
+Ces valeurs vivent dans **un seul fichier de thème** (voir la skill `flutter-riverpod`), jamais
+codées en dur dans un écran.
+
+| Rôle | Couleur | Note |
+|---|---|---|
+| Système / neutre | `#3A86FF` | glow `#4CC9F0` |
+| Sport | `#E63946` | |
+| Budget | `#F2B705` | |
+| Habitudes | `#2DC653` | |
+| Calendrier | `#9D4EDD` | |
+| Fond | `#05070C` | |
+| Panneaux | `#0D1420` | bordure `#1E293B` |
+| Texte atténué | `#8B98A8` | `--text-dim`, pour les étiquettes JetBrains Mono |
+
+Les **8 écrans** de référence : Accueil, Fenêtre de Statut, Sport, Budget, Habitudes & Tâches,
+Calendrier, Onboarding/Éveil, Coach.
+
 ## Règles non négociables
 
 1. **TDD strict, sans exception :** rouge → vert → refactor, pour chaque commande, requête,

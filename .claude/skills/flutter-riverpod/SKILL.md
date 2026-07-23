@@ -57,10 +57,12 @@ coins HUD et les lueurs. Ces valeurs vivent dans **un seul `ThemeData` / fichier
 et chaque écran s'y réfère — jamais un `Color(0xFF…)` ni une taille de police codés en ligne
 dans un widget. Un hex en dur dans un écran, c'est le token qui diverge au troisième écran.
 
-**Tu n'inventes pas ces valeurs.** Si le brief de design (ou les écrans de référence
-d'onboarding/profil) n'est pas fourni, demande-le avant de poser des couleurs — sinon tu
-livres une identité visuelle qu'il faudra refaire. C'est un `docs/` manquant, on le demande, on
-ne le reconstitue pas.
+**Tu n'inventes pas ces valeurs.** La charte est désormais dans `CLAUDE.md` (section « Charte
+visuelle ») : trois rôles typographiques stricts (Rajdhani 700 pour chiffres/titres, Inter pour
+le corps, JetBrains Mono majuscules pour les étiquettes), coins en viseur HUD, lueurs réelles,
+grille de fond, et les jetons de couleur par domaine. Lis-la avant de poser le moindre style —
+l'écueil documenté est le rendu « dashboard SaaS » plat et générique. Ce qui n'y figure pas
+(une valeur précise absente, un écran non couvert) se **demande**, ne se reconstitue pas.
 
 ## Auth : le JWT se stocke en sécurisé et voyage avec chaque appel
 
