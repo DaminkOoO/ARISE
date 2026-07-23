@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/textes.dart';
 import '../../theme/arise_theme.dart';
+import '../../widgets/etats_async.dart';
 import '../../widgets/hexagon.dart';
 import '../../widgets/hud_background.dart';
 import '../../widgets/hud_corners.dart';
@@ -27,62 +28,12 @@ class HomeScreen extends ConsumerWidget {
       body: HudBackground(
         child: SafeArea(
           child: async.when(
-            loading: () => const _EtatChargement(),
-            error: (_, _) => _EtatErreur(
+            loading: () => const EtatChargement(),
+            error: (_, _) => EtatErreur(
               onReessayer: () => ref.invalidate(homeDataProvider),
             ),
             data: (data) => _Contenu(data: data),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EtatChargement extends StatelessWidget {
-  const _EtatChargement();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          CircularProgressIndicator(color: AriseColors.systeme),
-          SizedBox(height: 16),
-          SystemLabel(Textes.synchronisation, accent: AriseColors.glow),
-        ],
-      ),
-    );
-  }
-}
-
-class _EtatErreur extends StatelessWidget {
-  const _EtatErreur({required this.onReessayer});
-
-  final VoidCallback onReessayer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AriseSpacing.ecran),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SystemLabel('[Système]', accent: AriseColors.glow),
-            const SizedBox(height: 12),
-            Text(
-              Textes.erreurSysteme,
-              textAlign: TextAlign.center,
-              style: AriseTypography.corps,
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: onReessayer,
-              child: Text(Textes.reessayer, style: AriseTypography.corps),
-            ),
-          ],
         ),
       ),
     );

@@ -26,6 +26,12 @@ abstract final class Textes {
   static String chasseurCree(String rang) =>
       'Chasseur créé. Rang de départ : $rang.';
 
+  // Sport.
+  static const String sportTitre = 'SPORT';
+  static const String queteDuJour = '[Quête du Jour]';
+  static const String terminer = 'Terminer';
+  static const String historiqueRecent = 'Historique récent';
+
   // Accueil.
   static const String serieActuelle = 'Série actuelle';
 
