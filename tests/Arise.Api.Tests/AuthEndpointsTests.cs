@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 
@@ -130,5 +131,50 @@ public class AuthEndpointsTests(ApiFixture api)
         reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task Donne_l_identite_du_Chasseur_courant_avec_un_jeton()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Sung");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+        var connexion = await client.PostAsJsonAsync("/auth/login", new { Username = nom, Password = MotDePasse });
+        var jeton = (await connexion.Content.ReadFromJsonAsync<ReponseLogin>())!.AccessToken;
+
+        var requete = new HttpRequestMessage(HttpMethod.Get, "/auth/moi");
+        requete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jeton);
+        var reponse = await client.SendAsync(requete);
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Rend_le_nom_du_Chasseur_authentifie()
+    {
+        var client = api.CreateClient();
+        var nom = NomUnique("Thomas");
+        await client.PostAsJsonAsync("/auth/register", new { Username = nom, Password = MotDePasse });
+        var connexion = await client.PostAsJsonAsync("/auth/login", new { Username = nom, Password = MotDePasse });
+        var jeton = (await connexion.Content.ReadFromJsonAsync<ReponseLogin>())!.AccessToken;
+
+        var requete = new HttpRequestMessage(HttpMethod.Get, "/auth/moi");
+        requete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jeton);
+        var reponse = await client.SendAsync(requete);
+
+        var corps = await reponse.Content.ReadFromJsonAsync<ReponseMoi>();
+        corps!.Username.Should().Be(nom);
+    }
+
+    [Fact]
+    public async Task Refuse_l_endpoint_protege_sans_jeton_en_401()
+    {
+        var client = api.CreateClient();
+
+        var reponse = await client.GetAsync("/auth/moi");
+
+        reponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     private sealed record ReponseLogin(string AccessToken, DateTimeOffset ExpiresAt);
+
+    private sealed record ReponseMoi(Guid UserId, string Username);
 }
