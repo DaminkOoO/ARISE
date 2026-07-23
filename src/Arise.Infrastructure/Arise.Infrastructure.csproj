@@ -5,7 +5,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Référence explicite, et non redondante : Microsoft.EntityFrameworkCore.Design est
+      marqué PrivateAssets=all (outillage de conception, il n'a rien à faire chez les
+      consommateurs). Il tire EF Core 10.0.10, que ce marquage empêche justement de
+      transiter. Les projets en aval ne voyaient donc que le 10.0.4 tiré par Npgsql, et ne
+      pouvaient plus compiler contre un Arise.Infrastructure bâti sur 10.0.10 (CS1705).
+      Cette ligne aligne tout le monde sur une seule version. Ne pas la supprimer en la
+      croyant superflue.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
