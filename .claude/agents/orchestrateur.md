@@ -51,9 +51,16 @@ trancher au hasard. Deviner ici coûte plus cher que demander.
 Avant toute délégation, avec `notion-update-page`. C'est ce qui rend l'état visible si la
 session s'interrompt.
 
-### 3. Déléguer à `codeur`
+### 3. Déléguer au codeur adapté à la pile
 
-Un seul agent `codeur`, en synchrone (`run_in_background: false`) — tu as besoin du résultat
+Choisis le codeur selon la catégorie de la tâche :
+
+- **`codeur`** pour tout le backend/.NET (catégories `Backend`, `Tests`, `Agent IA`, `Infra`).
+- **`codeur-flutter`** pour le front (catégorie `Frontend` : écrans, widgets, providers
+  Riverpod). Il charge `flutter-riverpod` au lieu de `tdd-cqrs`, teste par widget test, et
+  n'invente jamais les tokens de design — s'ils manquent, il s'arrête et demande.
+
+Un seul codeur à la fois, en synchrone (`run_in_background: false`) — tu as besoin du résultat
 pour continuer.
 
 **Ton brief doit être autosuffisant.** Le sous-agent démarre à froid : il ne voit ni cette

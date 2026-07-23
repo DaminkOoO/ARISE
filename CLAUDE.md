@@ -78,20 +78,24 @@ le principe.
 |---|---|
 | `tache-suivante` | Début de session : quelle tâche Notion, et transitions de statut |
 | `tdd-cqrs` | Avant toute ligne de code de production : boucle rouge/vert/refactor, conventions CQRS |
+| `gamification-domaine` | Moteur central : XP, niveau, rang, séries — formule unique, pièges de dates |
+| `persistence-ef` | Repository, DbContext, migration, contrainte, round-trip Testcontainers (vrai Postgres) |
 | `agent-gemini` | Dès qu'un agent IA est touché : faux HTTP, validation de la réponse |
+| `flutter-riverpod` | Front Flutter/Riverpod : widget test d'abord, tokens HUD, français, frontière backend |
 | `garde-fous` | Avant de clôturer une tâche budget / sport / courses / prompt / texte utilisateur |
 | `commit-vert` | Au moment de commiter : cadence, message, ce qui n'entre jamais dans l'historique |
 | `reprise-git` | Erreur git à rattraper, ou avant toute commande destructive |
 
 ## Agents du dépôt (`.claude/agents/`)
 
-Six agents qui se répartissent trois rôles disjoints : **un décide, un écrit, quatre jugent.**
-Aucun n'en cumule deux.
+Sept agents qui se répartissent trois rôles disjoints : **un décide, deux écrivent, quatre
+jugent.** Aucun n'en cumule deux.
 
 | Agent | Rôle |
 |---|---|
-| `orchestrateur` | Conduit la session : tâche Notion → `codeur` → les quatre revues → vérifie → `Done` |
-| `codeur` | Implémente une tâche déjà choisie, en TDD strict, et commite à chaque état vert |
+| `orchestrateur` | Conduit la session : tâche Notion → `codeur`/`codeur-flutter` → les quatre revues → vérifie → `Done` |
+| `codeur` | Implémente une tâche backend/.NET déjà choisie, en TDD strict, et commite à chaque état vert |
+| `codeur-flutter` | Implémente une tâche front Flutter/Riverpod déjà choisie (catégorie `Frontend`), TDD par widget test |
 
 Les quatre relecteurs sont indépendants et se lancent **en parallèle**, dans un seul message,
 avant de passer une tâche en `Done`. Ils lisent les skills correspondantes pour les règles,

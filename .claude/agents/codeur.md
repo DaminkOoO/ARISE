@@ -31,6 +31,10 @@ une erreur git (`reprise-git`).
 Charge `tdd-cqrs` avec l'outil `Skill`, **avant la moindre ligne de code de production**.
 Charge aussi :
 
+- `gamification-domaine` si la tâche touche `HunterProfile`, l'XP, un niveau, un rang, un
+  événement de rang, ou une série (streak) — le moteur central que toutes les phases réutilisent ;
+- `persistence-ef` si la tâche touche un repository, le `DbContext`, une migration, une
+  configuration d'entité, une contrainte, ou un test de round-trip Testcontainers ;
 - `agent-gemini` si la tâche touche un agent, un prompt, la génération de quêtes, le rapport
   quotidien, l'onboarding ou une recommandation RAG ;
 - `garde-fous` si la tâche touche le budget, le sport, le coach, les quêtes, les courses ou
