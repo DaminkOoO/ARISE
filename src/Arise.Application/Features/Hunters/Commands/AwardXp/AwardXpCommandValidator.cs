@@ -12,6 +12,11 @@ public sealed class AwardXpCommandValidator : AbstractValidator<AwardXpCommand>
 {
     public AwardXpCommandValidator()
     {
+        // Cohérent avec les autres validators du dépôt (ex. RegisterUserCommandValidator) :
+        // si une deuxième règle s'ajoute un jour sur un de ces champs, Stop évite d'afficher
+        // deux reproches pour une seule case.
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(commande => commande.HunterProfileId)
             .NotEmpty()
                 .WithMessage("Le profil de Chasseur ciblé est obligatoire.");
