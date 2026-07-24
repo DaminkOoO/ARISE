@@ -42,6 +42,12 @@
       les valide vit côté API et tire la même ligne Microsoft.IdentityModel 8.x transitivement.
     -->
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
+    <!--
+      Client HTTP typé pour les agents Gemini (GeminiOnboardingAgent et ceux qui suivront) :
+      AddHttpClient<TClient> et son cycle de vie géré (SocketsHttpHandler mis en pool) plutôt
+      qu'un `new HttpClient()` par agent. Version alignée sur la ligne EF Core 10.0.10 du dépôt.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,8 +1,10 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Arise.Infrastructure;
 
@@ -31,6 +33,15 @@ public static class DependencyInjection
         // et date depuis la TimeProvider partagée. La section Jwt de la configuration est liée
         // côté API (Program), là où le middleware JwtBearer lit la même clé pour valider.
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        // Client HTTP typé : IHttpClientFactory gère le cycle de vie du handler sous-jacent,
+        // l'agent lui-même reste transient. La section Gemini de la configuration est liée
+        // côté API (Program), sur le même modèle que Jwt — la clé ne vit jamais ici.
+        services.AddHttpClient<IOnboardingAgent, GeminiOnboardingAgent>((provider, client) =>
+        {
+            var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
+            client.BaseAddress = new Uri(gemini.BaseUrl);
+        });
 
         return services;
     }

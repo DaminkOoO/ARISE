@@ -6,6 +6,7 @@ using Arise.Application;
 using Arise.Application.Features.Auth.Commands.Login;
 using Arise.Application.Features.Auth.Commands.RegisterUser;
 using Arise.Infrastructure;
+using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -31,6 +32,10 @@ builder.Services.AddInfrastructure(chaineDeConnexion);
 // La section Jwt alimente à la fois l'émetteur (Infrastructure) et le middleware de
 // validation ci-dessous : une seule source pour la clé, l'émetteur et l'audience.
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
+
+// Même modèle que Jwt : la clé Gemini vient de l'environnement (ou d'un secret utilisateur),
+// jamais d'un appsettings.json versionné — la section n'y figure donc pas.
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.Section));
 
 // Le middleware de validation lit la même section que l'émetteur : clé, émetteur et audience
 // ne peuvent donc pas diverger entre celui qui signe et celui qui vérifie.

@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;
 using FluentAssertions;
@@ -46,5 +47,17 @@ public class DependencyInjectionTests
 
         descripteur.ImplementationType.Should().Be(typeof(JwtTokenGenerator));
         descripteur.Lifetime.Should().Be(ServiceLifetime.Singleton);
+    }
+
+    // Premier agent Gemini concret du dépôt : câblé en client HTTP typé (AddHttpClient), dont
+    // le descripteur ne porte pas d'ImplementationType direct — il s'enregistre via une
+    // fabrique. On résout donc réellement l'instance, ce qui éprouve aussi que la fabrique ne
+    // lève pas (IOptions<GeminiOptions> résolvable même sans Configure explicite).
+    [Fact]
+    public void Branche_l_agent_d_onboarding_sur_l_implementation_Gemini()
+    {
+        using var fournisseur = Cablage().BuildServiceProvider();
+
+        fournisseur.GetRequiredService<IOnboardingAgent>().Should().BeOfType<GeminiOnboardingAgent>();
     }
 }
