@@ -16,12 +16,13 @@ namespace Arise.Infrastructure.Tests.Common;
 internal sealed class FauxHttpMessageHandler : HttpMessageHandler
 {
     private readonly HttpStatusCode _code;
-    private readonly string _corps;
+    private readonly IReadOnlyList<string> _corps;
     private readonly Func<Exception>? _panne;
     private readonly List<RequeteCapturee> _requetes = [];
     private readonly Lock _verrou = new();
 
-    private FauxHttpMessageHandler(HttpStatusCode code, string corps, Func<Exception>? panne)
+    private FauxHttpMessageHandler(
+        HttpStatusCode code, IReadOnlyList<string> corps, Func<Exception>? panne)
     {
         _code = code;
         _corps = corps;
@@ -31,7 +32,19 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
     /// <summary>Répond ce corps, avec ce statut, à chaque appel.</summary>
     public static FauxHttpMessageHandler Repond(
         string corps,
-        HttpStatusCode code = HttpStatusCode.OK) => new(code, corps, panne: null);
+        HttpStatusCode code = HttpStatusCode.OK) => new(code, [corps], panne: null);
+
+    /// <summary>
+    /// Répond ces corps l'un après l'autre, puis rejoue le dernier une fois la séquence
+    /// épuisée.
+    ///
+    /// <para>Sans quoi un agent qui réessaie après une réponse rejetée ne serait pas
+    /// éprouvable : sa seconde tentative doit pouvoir réussir là où la première a échoué. Et
+    /// rejouer le dernier corps plutôt que lever fait apparaître un appel de trop sur le
+    /// compteur de <see cref="Requetes"/>, là où le test le cherche.</para>
+    /// </summary>
+    public static FauxHttpMessageHandler RepondSuccessivement(params string[] corps) =>
+        new(HttpStatusCode.OK, corps, panne: null);
 
     /// <summary>
     /// Lève l'exception que rend cette fabrique au lieu de répondre —
@@ -43,7 +56,7 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
     /// le second échec effaçant le premier.</para>
     /// </summary>
     public static FauxHttpMessageHandler Tombe(Func<Exception> panne) =>
-        new(HttpStatusCode.OK, string.Empty, panne);
+        new(HttpStatusCode.OK, [string.Empty], panne);
 
     /// <summary>
     /// Ce qui a été envoyé, dans l'ordre des appels — y compris l'appel qui a déclenché une
@@ -87,9 +100,11 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
             ? string.Empty
             : await request.Content.ReadAsStringAsync(CancellationToken.None);
 
+        int rang;
         lock (_verrou)
         {
             _requetes.Add(new RequeteCapturee(request.Method, request.RequestUri, corps));
+            rang = _requetes.Count - 1;
         }
 
         // Après la capture : le vrai HttpClient part aussi en annulation une fois la requête
@@ -105,7 +120,8 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
         {
             // UTF-8 explicite : les accents du prompt comme de la réponse traversent, toute
             // l'interface étant en français (règle n°7).
-            Content = new StringContent(_corps, Encoding.UTF8, "application/json"),
+            Content = new StringContent(
+                _corps[Math.Min(rang, _corps.Count - 1)], Encoding.UTF8, "application/json"),
         };
     }
 }

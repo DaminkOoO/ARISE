@@ -123,6 +123,40 @@ public class FauxHttpMessageHandlerTests
         (await seconde.Content.ReadAsStringAsync()).Should().Be(CorpsJson);
     }
 
+    // Un agent qui réessaie après une réponse rejetée ne peut pas être éprouvé contre un
+    // transport qui rejoue éternellement le même corps : la seconde tentative doit pouvoir
+    // réussir là où la première a échoué.
+    [Fact]
+    public async Task Rend_les_reponses_successives_dans_l_ordre_configure()
+    {
+        const string premier = """{"quête":"première réponse"}""";
+        const string second = """{"quête":"seconde réponse"}""";
+        var client = FauxHttpMessageHandler.RepondSuccessivement(premier, second).Client();
+
+        var reponsePremiere = await client.GetAsync("/premier");
+        var reponseSeconde = await client.GetAsync("/second");
+
+        (await reponsePremiere.Content.ReadAsStringAsync()).Should().Be(premier);
+        (await reponseSeconde.Content.ReadAsStringAsync()).Should().Be(second);
+    }
+
+    // Un agent qui appellerait une fois de trop doit se voir sur le compteur de requêtes, pas
+    // sur une exception d'indice hors bornes du transport.
+    [Fact]
+    public async Task Rejoue_la_derniere_reponse_une_fois_la_sequence_epuisee()
+    {
+        const string dernier = """{"quête":"seconde réponse"}""";
+        var client = FauxHttpMessageHandler
+            .RepondSuccessivement("""{"quête":"première réponse"}""", dernier)
+            .Client();
+
+        await client.GetAsync("/premier");
+        await client.GetAsync("/second");
+        var troisieme = await client.GetAsync("/troisieme");
+
+        (await troisieme.Content.ReadAsStringAsync()).Should().Be(dernier);
+    }
+
     // Quatrième test minimum de tout agent : panne réseau → repli, pas d'exception qui
     // remonte. Encore faut-il pouvoir simuler la panne.
     [Fact]
