@@ -164,7 +164,7 @@ Backend (.NET, depuis la racine) :
 | Un projet de test | `dotnet test tests/<Projet.Tests>` |
 | Un seul test | `dotnet test --filter "FullyQualifiedName~NomDuTest"` |
 | Une classe de tests | `dotnet test --filter "ClassName~NomDeClasse"` |
-| Migration EF | `dotnet ef migrations add <Nom> -p src/<Infrastructure> -s src/<Api>` |
+| Migration EF | `dotnet ef migrations add <Nom> -p src/Arise.Infrastructure -s src/Arise.Infrastructure` |
 
 Flutter : `flutter test`, `flutter test test/<chemin>_test.dart` pour un fichier,
 `flutter analyze`, `flutter run`.

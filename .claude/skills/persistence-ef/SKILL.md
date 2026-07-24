@@ -28,8 +28,15 @@ migrations « le temps de finir » — le prochain `dotnet ef` ou le prochain d�
 base fausse.
 
 ```
-dotnet ef migrations add <Nom> -p src/Arise.Infrastructure -s src/Arise.Api
+dotnet ef migrations add <Nom> -p src/Arise.Infrastructure -s src/Arise.Infrastructure
 ```
+
+Pas `-s src/Arise.Api` : `Arise.Api.csproj` ne référence pas
+`Microsoft.EntityFrameworkCore.Design` (marqué `PrivateAssets=all` côté Infrastructure, donc
+non transitif), et `dotnet ef` refuse de démarrer avec l'API comme projet de démarrage.
+`AriseDbContextDesignTimeFactory` existe précisément pour qu'Infrastructure s'auto-suffise —
+la migration générée est identique dans les deux cas puisque le design-time factory ne dépend
+d'aucune configuration d'hôte.
 
 Nomme la migration par l'intention métier en français (`CreationDesChasseurs`), pas
 `Migration1`.
