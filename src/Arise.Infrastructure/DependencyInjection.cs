@@ -29,6 +29,7 @@ public static class DependencyInjection
         // est sans état, une seule instance suffit.
         services.AddScoped<IUserRepository, EfUserRepository>();
         services.AddScoped<IHunterProfileRepository, EfHunterProfileRepository>();
+        services.AddScoped<IQuestRepository, EfQuestRepository>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         // L'émetteur de jetons est sans état : il lit ses paramètres via IOptions<JwtOptions>

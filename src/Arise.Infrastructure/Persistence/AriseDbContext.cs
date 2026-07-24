@@ -1,4 +1,5 @@
 using Arise.Domain.Hunters;
+using Arise.Domain.Quests;
 using Arise.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +23,8 @@ public sealed class AriseDbContext(DbContextOptions<AriseDbContext> options)
     public DbSet<User> Users => Set<User>();
 
     public DbSet<HunterProfile> HunterProfiles => Set<HunterProfile>();
+
+    public DbSet<Quest> Quests => Set<Quest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
