@@ -1,0 +1,136 @@
+using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Events;
+using Arise.Application.Common.Exceptions;
+using Arise.Application.Features.Hunters.Commands.AwardXp;
+using Arise.Domain.Hunters;
+using FluentAssertions;
+using MediatR;
+using NSubstitute;
+
+namespace Arise.Application.Tests.Features.Hunters.Commands;
+
+public class AwardXpCommandHandlerTests
+{
+    private readonly IHunterProfileRepository _profils = Substitute.For<IHunterProfileRepository>();
+    private readonly IPublisher _publisher = Substitute.For<IPublisher>();
+
+    private HunterProfile CreerProfil()
+    {
+        var profil = HunterProfile.Create();
+        _profils.GetByIdAsync(profil.Id, Arg.Any<CancellationToken>()).Returns(profil);
+        return profil;
+    }
+
+    private AwardXpCommandHandler Handler() => new(_profils, _publisher);
+
+    private Task<AwardXpResult> Attribuer(Guid hunterProfileId, int montant) =>
+        Handler().Handle(new AwardXpCommand(hunterProfileId, montant), CancellationToken.None);
+
+    [Fact]
+    public async Task Applique_le_montant_d_XP_au_profil()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 50);
+
+        profil.CurrentXp.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task Sauvegarde_le_profil_apres_attribution()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 50);
+
+        await _profils.Received(1).SaveAsync(profil, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renvoie_l_etat_du_profil_apres_attribution()
+    {
+        var profil = CreerProfil();
+
+        var resultat = await Attribuer(profil.Id, montant: 50);
+
+        resultat.Should().Be(new AwardXpResult(
+            profil.Id, profil.Level, profil.Rank, profil.CurrentXp, profil.XpToNextLevel));
+    }
+
+    [Fact]
+    public async Task Ne_publie_aucun_evenement_quand_aucun_rang_n_est_franchi()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 50);
+
+        await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+
+    // 520 XP amène pile du niveau 1 (rang E) au niveau 5 (rang D) : une seule frontière de
+    // rang franchie, un seul événement attendu.
+    [Fact]
+    public async Task Publie_un_evenement_quand_un_rang_est_franchi()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 520);
+
+        await _publisher.Received(1).Publish(
+            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
+            Arg.Any<CancellationToken>());
+    }
+
+    // 1620 XP amène pile du niveau 1 au niveau 10 : deux frontières de rang franchies
+    // (E -> D au niveau 5, D -> C au niveau 10). C'est exactement le cas que la revue
+    // précédente a signalé : le handler ne doit pas coalescer les deux en un seul événement.
+    [Fact]
+    public async Task Publie_un_evenement_par_rang_franchi_quand_plusieurs_sont_traverses_d_un_coup()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 1620);
+
+        await _publisher.Received(1).Publish(
+            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
+            Arg.Any<CancellationToken>());
+        await _publisher.Received(1).Publish(
+            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.D, HunterRank.C)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Vide_les_evenements_du_profil_apres_les_avoir_publies()
+    {
+        var profil = CreerProfil();
+
+        await Attribuer(profil.Id, montant: 1620);
+
+        profil.DomainEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Leve_une_exception_quand_le_profil_est_introuvable()
+    {
+        var idInconnu = Guid.NewGuid();
+        _profils.GetByIdAsync(idInconnu, Arg.Any<CancellationToken>())
+            .Returns((HunterProfile?)null);
+
+        var acte = () => Attribuer(idInconnu, montant: 50);
+
+        await acte.Should().ThrowAsync<HunterProfileNotFoundException>();
+    }
+
+    [Fact]
+    public async Task Ne_publie_rien_quand_le_profil_est_introuvable()
+    {
+        var idInconnu = Guid.NewGuid();
+        _profils.GetByIdAsync(idInconnu, Arg.Any<CancellationToken>())
+            .Returns((HunterProfile?)null);
+
+        var acte = () => Attribuer(idInconnu, montant: 50);
+
+        await acte.Should().ThrowAsync<HunterProfileNotFoundException>();
+        await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+}
