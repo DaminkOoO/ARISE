@@ -1,5 +1,6 @@
 using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Hunters;
+using Arise.Application.Features.Sport;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;
@@ -70,5 +71,16 @@ public class DependencyInjectionTests
         using var fournisseur = Cablage().BuildServiceProvider();
 
         fournisseur.GetRequiredService<IOnboardingAgent>().Should().BeOfType<GeminiOnboardingAgent>();
+    }
+
+    // Même câblage en client HTTP typé que l'agent d'onboarding : on résout réellement
+    // l'instance, ce qui éprouve du même coup que la fabrique ne lève pas.
+    [Fact]
+    public void Branche_l_agent_de_generation_de_quetes_sur_l_implementation_Gemini()
+    {
+        using var fournisseur = Cablage().BuildServiceProvider();
+
+        fournisseur.GetRequiredService<IQuestGenerationAgent>()
+            .Should().BeOfType<GeminiQuestGenerationAgent>();
     }
 }

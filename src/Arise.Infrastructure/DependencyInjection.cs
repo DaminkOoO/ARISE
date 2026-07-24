@@ -1,5 +1,6 @@
 using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Hunters;
+using Arise.Application.Features.Sport;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;
@@ -41,6 +42,12 @@ public static class DependencyInjection
         // l'agent lui-même reste transient. La section Gemini de la configuration est liée
         // côté API (Program), sur le même modèle que Jwt — la clé ne vit jamais ici.
         services.AddHttpClient<IOnboardingAgent, GeminiOnboardingAgent>((provider, client) =>
+        {
+            var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
+            client.BaseAddress = new Uri(gemini.BaseUrl);
+        });
+
+        services.AddHttpClient<IQuestGenerationAgent, GeminiQuestGenerationAgent>((provider, client) =>
         {
             var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
             client.BaseAddress = new Uri(gemini.BaseUrl);
