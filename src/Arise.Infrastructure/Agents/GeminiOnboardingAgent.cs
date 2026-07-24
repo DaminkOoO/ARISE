@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Hunters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

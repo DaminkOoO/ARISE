@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Features.Hunters;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
 using Arise.Infrastructure.Persistence;

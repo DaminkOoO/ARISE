@@ -1,6 +1,6 @@
-using Arise.Application.Features.Hunters;
+using Arise.Application.Common.Abstractions;
 
-namespace Arise.Application.Common.Abstractions;
+namespace Arise.Application.Features.Hunters;
 
 /// <summary>
 /// L'agent qui écrit la narration de l'écran Éveil. Son seul rôle : transformer les objectifs

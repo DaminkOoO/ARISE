@@ -1,5 +1,4 @@
 using System.Net;
-using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Hunters;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Tests.Common;

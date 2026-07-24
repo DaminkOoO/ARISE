@@ -1,6 +1,8 @@
 using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Hunters;
 using Arise.Application.Features.Hunters.Commands.OnboardHunter;
+// IHunterProfileRepository vit encore dans Common.Abstractions (générique, réutilisé par
+// AwardXp) ; seul IOnboardingAgent a déménagé vers Features.Hunters, propre au domaine.
 using Arise.Domain.Hunters;
 using FluentAssertions;
 using NSubstitute;

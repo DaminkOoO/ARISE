@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Features.Hunters;
 using Arise.Domain.Hunters;
 using MediatR;
 
