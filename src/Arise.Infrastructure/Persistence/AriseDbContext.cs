@@ -1,3 +1,4 @@
+using Arise.Domain.Hunters;
 using Arise.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,8 @@ public sealed class AriseDbContext(DbContextOptions<AriseDbContext> options)
     public const string CollationInsensibleALaCasse = "insensible_a_la_casse";
 
     public DbSet<User> Users => Set<User>();
+
+    public DbSet<HunterProfile> HunterProfiles => Set<HunterProfile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -28,6 +28,7 @@ public static class DependencyInjection
         // Le repository suit la durée de vie du DbContext (scoped) dont il dépend ; le hacheur
         // est sans état, une seule instance suffit.
         services.AddScoped<IUserRepository, EfUserRepository>();
+        services.AddScoped<IHunterProfileRepository, EfHunterProfileRepository>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         // L'émetteur de jetons est sans état : il lit ses paramètres via IOptions<JwtOptions>
