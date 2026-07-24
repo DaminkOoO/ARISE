@@ -17,10 +17,12 @@ namespace Arise.Infrastructure.Agents;
 /// exploitable ?</description></item>
 /// <item><description><b>Forme</b> — <c>awakening_narrative</c> est-il une chaîne
 /// présente ?</description></item>
-/// <item><description><b>Garde-fous produit</b> — non vide, non démesurée : le contrat de
-/// sortie de cet agent est trop restreint pour porter un chiffre médical ou une formulation
-/// culpabilisante, mais un texte vide ou hors bornes reste rejeté comme n'importe quel autre
-/// contenu non conforme.</description></item>
+/// <item><description><b>Garde-fous produit</b> — non vide, non démesurée, et sans aucun
+/// chiffre : niveau, rang et XP de départ sont des constantes fixées par
+/// <see cref="Arise.Domain.Hunters.HunterProfile.Create"/>, jamais par le modèle, donc toute
+/// narration qui en mentionne un est nécessairement mensongère dès le premier Éveil. Ce
+/// contrôle vit en C#, pas seulement dans le prompt — un garde-fou écrit uniquement dans le
+/// prompt se contourne à la première réponse inattendue.</description></item>
 /// </list>
 ///
 /// <para>Un échec à n'importe quelle étape — y compris réseau ou délai dépassé — se solde par
@@ -141,6 +143,17 @@ internal sealed class GeminiOnboardingAgent(
             logger.LogWarning(
                 "Narration hors bornes rejetée (onboarding). Longueur : {Longueur}",
                 narrationRognee.Length);
+            return Repli;
+        }
+
+        // Garde-fou produit, en C# et pas seulement dans le prompt : niveau, rang et XP de
+        // départ sont des constantes fixées par HunterProfile.Create(), jamais par le modèle.
+        // Un chiffre dans la narration (« Rang C », « niveau 12 »...) est donc nécessairement
+        // mensonger dès le premier Éveil — rejeté comme n'importe quel autre contenu hors
+        // contrat, jamais « corrigé » en le retirant du texte.
+        if (narrationRognee.Any(char.IsDigit))
+        {
+            logger.LogWarning("Narration contenant un chiffre rejetée (onboarding).");
             return Repli;
         }
 

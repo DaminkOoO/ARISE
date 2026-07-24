@@ -149,6 +149,22 @@ public class GeminiOnboardingAgentTests
         resultat.EstRepli.Should().BeTrue();
     }
 
+    // Garde-fou produit : niveau, rang et XP de départ sont des constantes fixées par
+    // HunterProfile.Create(), jamais par le modèle. Une narration qui mentionne un chiffre
+    // (rang, niveau...) est mensongère dès le premier Éveil et doit être rejetée comme
+    // n'importe quel autre contenu hors contrat — pas seulement déconseillée dans le prompt.
+    [Fact]
+    public async Task Se_replie_quand_la_narration_generee_contient_un_chiffre()
+    {
+        var transport = FauxHttpMessageHandler.Repond(
+            EnveloppeGemini(
+                """{"awakening_narrative": "Te voilà déjà Rang C, Chasseur, prêt pour le niveau 12 !"}"""));
+
+        var resultat = await Agent(transport).ExecuteAsync(Requete, CancellationToken.None);
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
     // 4. Erreur HTTP ou délai dépassé → repli, pas d'exception qui remonte.
     [Fact]
     public async Task Se_replie_sur_une_panne_reseau()
