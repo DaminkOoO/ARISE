@@ -43,8 +43,10 @@ FROM "collection://<id-de-la-phase>"
 WHERE "Statut" != 'Done'
 ```
 
-Reprends d'abord toute tâche déjà `In progress` — une seule tâche en cours à la fois, sinon
-le tableau ne reflète plus l'état réel.
+Reprends d'abord toute tâche déjà `In progress`. Par défaut, une seule tâche en cours à la
+fois, sinon le tableau ne reflète plus l'état réel — la parallélisation (section 3bis) est
+l'exception délibérée, pas la norme, et exige de passer **chaque** tâche lancée en `In progress`
+avant de déléguer, jamais une seule pour en cacher deux.
 
 ## 3. Choisir la tâche — l'ordre du tableau n'est pas lisible par l'API
 
@@ -67,6 +69,27 @@ Choisis donc par **dépendance**, pas par position :
 
 Si deux candidates restent réellement à égalité, propose-les à l'utilisateur et laisse-le
 trancher — deviner ici coûte plus cher que demander.
+
+## 3bis. Paralléliser — seulement si les tâches sont vraiment indépendantes
+
+Par défaut, une tâche à la fois. Mais si l'utilisateur demande d'accélérer, ou si plusieurs
+candidates de tête de liste (section 3) ne se contredisent sur aucune dépendance, elles
+peuvent être menées en parallèle — voir la section « Paralléliser » de l'agent `orchestrateur`
+pour la mécanique (worktree par tâche, fusion, revue séparée par tâche).
+
+Deux tâches sont candidates à la parallélisation seulement si **toutes** ces conditions
+tiennent :
+- Ni l'une ni l'autre ne dépend du résultat de l'autre (vérifie l'ordre de la section 3 :
+  une tâche `Backend` qui déclenche une commande d'une autre tâche encore `Not started` n'est
+  **pas** indépendante, même si les fichiers ne se recoupent pas encore).
+- Elles ne touchent prévisiblement pas les mêmes fichiers — agrégats différents, couches
+  différentes, ou pile différente (un backend et un front sur un contrat déjà figé cohabitent
+  presque toujours).
+- Une tâche `Catégorie: Tests` qui nomme un composant reste couplée à sa tâche d'implémentation
+  (règle 5 ci-dessus) — jamais répartie entre deux agents parallèles.
+
+Dans le doute, reste séquentiel : un merge à démêler après coup coûte plus cher que le temps
+gagné à paralléliser une hypothèse fausse.
 
 ## 4. Passer la tâche en cours
 

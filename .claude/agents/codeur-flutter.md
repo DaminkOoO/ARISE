@@ -34,6 +34,9 @@ production**. Charge aussi :
 
 - `garde-fous` — dès qu'un texte affiché au Chasseur, une quête, une série ou un écran sport
   entre en jeu (tout le front en pratique : le ton et le français y sont non négociables) ;
+- `test-fonctionnel-flutter` si la tâche doit couvrir un parcours qui traverse l'app réelle
+  (`AriseApp`) plutôt qu'un seul écran isolé — en plus des widget tests par écran, pas à leur
+  place ;
 - `commit-vert` au moment de commiter.
 
 Lis `CLAUDE.md` pour le contexte. **Aucun projet Flutter n'existe encore** : si ta tâche est le

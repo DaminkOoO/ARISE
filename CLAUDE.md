@@ -83,6 +83,8 @@ le principe.
 | `agent-gemini` | Dès qu'un agent IA est touché : faux HTTP, validation de la réponse |
 | `flutter-riverpod` | Front Flutter/Riverpod : widget test d'abord, tokens HUD, français, frontière backend |
 | `garde-fous` | Avant de clôturer une tâche budget / sport / courses / prompt / texte utilisateur |
+| `test-fonctionnel-api` | Endpoint ajouté/modifié : couvrir requête → handler → persistance → réponse via un vrai hôte + Postgres jetable |
+| `test-fonctionnel-flutter` | Parcours qui traverse l'app réelle (`AriseApp`) plutôt qu'un seul écran isolé |
 | `commit-vert` | Au moment de commiter : cadence, message, ce qui n'entre jamais dans l'historique |
 | `reprise-git` | Erreur git à rattraper, ou avant toute commande destructive |
 

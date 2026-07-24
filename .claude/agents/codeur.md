@@ -39,6 +39,8 @@ Charge aussi :
   quotidien, l'onboarding ou une recommandation RAG ;
 - `garde-fous` si la tâche touche le budget, le sport, le coach, les quêtes, les courses ou
   tout texte affiché à l'utilisateur ;
+- `test-fonctionnel-api` si la tâche ajoute ou modifie un endpoint minimal API — en plus des
+  tests unitaires de handler, pas à leur place ;
 - `commit-vert` au moment de commiter.
 
 Lis `CLAUDE.md` pour le contexte, puis **établis l'arborescence réelle** (`Glob` sur `src/`

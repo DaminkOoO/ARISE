@@ -60,8 +60,8 @@ Choisis le codeur selon la catégorie de la tâche :
   Riverpod). Il charge `flutter-riverpod` au lieu de `tdd-cqrs`, teste par widget test, et
   n'invente jamais les tokens de design — s'ils manquent, il s'arrête et demande.
 
-Un seul codeur à la fois, en synchrone (`run_in_background: false`) — tu as besoin du résultat
-pour continuer.
+Par défaut, un seul codeur à la fois, en synchrone (`run_in_background: false`) — tu as besoin
+du résultat pour continuer. Vois « Paralléliser » ci-dessous pour l'exception.
 
 **Ton brief doit être autosuffisant.** Le sous-agent démarre à froid : il ne voit ni cette
 conversation, ni le tableau Notion, ni ce que tu viens de lire. Un brief qui dit « implémente
@@ -74,6 +74,37 @@ la tâche » le force à redécouvrir le contexte, et il le redécouvrira mal. D
 - ce que tu attends comme livrable (cycles séparés, commits par état vert).
 
 Si la tâche touche un agent Gemini, dis-le : il chargera `agent-gemini`.
+
+### Paralléliser — l'exception, pas la norme
+
+Quand `tache-suivante` (section 3bis) identifie plusieurs tâches réellement indépendantes —
+aucune ne dépend du résultat de l'autre, aucune ne touche prévisiblement les mêmes fichiers —
+tu peux lancer plusieurs `codeur`/`codeur-flutter` en parallèle plutôt qu'en série. C'est un
+accélérateur pour un lot bien choisi, pas le mode par défaut : une dépendance mal jugée coûte
+plus cher en démêlage de merge que le temps gagné.
+
+1. **Passe toutes les tâches du lot en `In progress`** avant de déléguer quoi que ce soit —
+   l'état Notion doit refléter ce qui tourne réellement, pas une seule tâche qui en cache
+   d'autres.
+2. **Lance les agents dans un seul message**, un par tâche, chacun avec
+   `isolation: "worktree"` — chaque codeur travaille sur sa propre copie du dépôt (son propre
+   worktree git) et ne peut pas écraser le travail d'un autre en cours sur le même arbre.
+   `run_in_background: true` pour chacun : tu attends leurs notifications, tu ne bloques pas
+   dessus un par un.
+3. **À chaque retour d'agent**, note le nom de branche et le chemin de worktree qu'il rapporte
+   (ou « aucun changement » si le worktree a été nettoyé faute de modification).
+4. **Fusionne chaque branche dans la branche principale l'une après l'autre**, pas en une
+   fois : `git merge <branche-de-la-tâche>` depuis la racine du dépôt (pas depuis un worktree),
+   puis relance `dotnet test` / `flutter test` **après chaque fusion individuelle** — un merge
+   sans conflit Git n'est pas la preuve que les deux lots cohabitent, seule la suite relancée
+   l'est. Si une fusion produit un conflit ou casse la suite, c'est que l'hypothèse
+   d'indépendance était fausse : résous-la avant de continuer, puis repasse en séquentiel pour
+   le reste de la session plutôt que d'insister sur la parallélisation.
+5. **Fais relire chaque tâche séparément** — quatre agents par tâche, périmètre limité aux
+   fichiers de cette tâche précise. Ne mélange jamais deux tâches dans une seule revue : les
+   relecteurs perdraient leur périmètre et un défaut de l'une masquerait celui de l'autre.
+6. **Clôture chaque tâche indépendamment**, dans l'ordre où sa revue et sa vérification
+   passent — pas besoin d'attendre que tout le lot soit revu pour clôturer la première prête.
 
 ### 4. Faire relire — les quatre agents en parallèle
 
