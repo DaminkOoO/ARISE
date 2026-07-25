@@ -47,12 +47,25 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <c>TryAddSingleton</c> : celle du test l'emporte, et un scénario daté n'a pas à attendre
     /// minuit.</para>
     /// </summary>
-    public ServiceProvider FournisseurApplicatif(TimeProvider horloge) =>
-        new ServiceCollection()
+    /// <param name="enPlus">
+    /// Enregistrements ajoutés <b>après</b> les deux couches, donc après les abonnés découverts
+    /// par balayage : un test qui greffe un abonné supplémentaire le voit s'exécuter en dernier.
+    /// C'est ce qu'il faut pour éprouver une panne survenant une fois la série déjà écrite —
+    /// la plus exigeante pour l'annulation.
+    /// </param>
+    public ServiceProvider FournisseurApplicatif(
+        TimeProvider horloge,
+        Action<IServiceCollection>? enPlus = null)
+    {
+        var services = new ServiceCollection()
             .AddSingleton(horloge)
             .AddApplication()
-            .AddInfrastructure(conteneur.GetConnectionString())
-            .BuildServiceProvider();
+            .AddInfrastructure(conteneur.GetConnectionString());
+
+        enPlus?.Invoke(services);
+
+        return services.BuildServiceProvider();
+    }
 }
 
 /// <summary>
