@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Arise.Application.Common.Events;
 using Arise.Domain.Common;
 using Arise.Domain.Hunters;
@@ -87,6 +88,52 @@ public class DomainEventNotificationTests
             .Publish(DomainEventNotification.Envelopper(MonteeDeRang), CancellationToken.None);
 
         abonne.Recus.Should().BeEmpty();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Balayage de tous les faits déclarés dans le Domain. La fabrique est le seul endroit du
+    // dépôt qui résolve un type à l'exécution : une réflexion ne casse pas à la compilation
+    // mais au runtime, et le mode de panne serait le pire possible — quête persistée, XP
+    // crédité, exception au moment de publier. Déclarer un IDomainEvent suffit désormais à être
+    // couvert ici : aucun futur événement n'a besoin qu'on pense à ajouter son test.
+    // ---------------------------------------------------------------------------------------
+
+    private static IEnumerable<Type> FaitsDuDomaine() =>
+        typeof(IDomainEvent).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract
+                && !type.IsInterface
+                && typeof(IDomainEvent).IsAssignableFrom(type));
+
+    public static TheoryData<Type> TousLesFaitsDuDomaine()
+    {
+        var faits = new TheoryData<Type>();
+
+        foreach (var type in FaitsDuDomaine())
+        {
+            faits.Add(type);
+        }
+
+        return faits;
+    }
+
+    [Theory]
+    [MemberData(nameof(TousLesFaitsDuDomaine))]
+    public void Enveloppe_tout_fait_declare_dans_le_Domain(Type typeDuFait)
+    {
+        // Instancié sans passer par son constructeur : le balayage ne connaît pas les
+        // composants du fait, et seul son type réel importe à la fabrique.
+        var fait = (IDomainEvent)RuntimeHelpers.GetUninitializedObject(typeDuFait);
+
+        DomainEventNotification.Envelopper(fait)
+            .Should().BeOfType(typeof(DomainEventNotification<>).MakeGenericType(typeDuFait));
+    }
+
+    // Sans quoi une découverte cassée rendrait le balayage vide, donc vert pour rien.
+    [Fact]
+    public void Le_balayage_trouve_les_faits_connus_du_Domain()
+    {
+        FaitsDuDomaine().Should().Contain(
+            [typeof(HunterRankedUpEvent), typeof(QuestCompletedEvent)]);
     }
 
     public sealed record FaitFactice(string Valeur) : IDomainEvent;
