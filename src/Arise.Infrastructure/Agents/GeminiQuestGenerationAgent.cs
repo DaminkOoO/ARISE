@@ -313,7 +313,7 @@ internal sealed class GeminiQuestGenerationAgent(
         QuetePayload? charge;
         try
         {
-            charge = JsonSerializer.Deserialize<QuetePayload>(texteGenere, OptionsJson);
+            charge = JsonSerializer.Deserialize<QuetePayload>(SansBarrieresMarkdown(texteGenere), OptionsJson);
         }
         catch (JsonException exception)
         {
@@ -406,6 +406,38 @@ internal sealed class GeminiQuestGenerationAgent(
 
         return Tentative.Reussite(new QuestGenerationAgentResult(
             titre, description, type, statCible, difficulte, charge.XpReward, EstRepli: false));
+    }
+
+    /// <summary>
+    /// Retire les barrières de bloc de code dont le modèle encadre volontiers sa réponse, même
+    /// en mode JSON — son réflexe le plus tenace. Le contenu est parfaitement valide ; se replier
+    /// pour trois caractères de décoration servirait au Chasseur un texte générique.
+    ///
+    /// <para>Décoration seulement : ce qui reste est désérialisé et repasse par la totalité des
+    /// contrôles, aucune indulgence n'est accordée au contenu lui-même.</para>
+    /// </summary>
+    private static string SansBarrieresMarkdown(string texte)
+    {
+        var rogne = texte.Trim();
+
+        if (!rogne.StartsWith("```", StringComparison.Ordinal))
+        {
+            return texte;
+        }
+
+        // La barrière ouvrante porte parfois le langage annoncé (```json) : tout ce qui suit
+        // sur cette première ligne en fait partie.
+        var finDeLaPremiereLigne = rogne.IndexOf('\n');
+        if (finDeLaPremiereLigne < 0)
+        {
+            return texte;
+        }
+
+        var interieur = rogne[(finDeLaPremiereLigne + 1)..].TrimEnd();
+
+        return interieur.EndsWith("```", StringComparison.Ordinal)
+            ? interieur[..^3]
+            : texte;
     }
 
     /// <summary>

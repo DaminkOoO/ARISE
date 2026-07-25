@@ -52,6 +52,22 @@ public class GeminiQuestGenerationAgentTests
             .Replace("MARQUEUR", texteEchappe);
     }
 
+    /// <summary>
+    /// Le JSON du contrat, tel que le modèle est censé le rendre — sans l'enveloppe HTTP, pour
+    /// que les tests de décoration (barrières markdown) puissent l'habiller autrement.
+    /// </summary>
+    private static string ChargeJson(
+        string titre = "L'Épreuve du Guerrier",
+        string description = DescriptionSaine,
+        string type = "daily",
+        string statCible = "FOR",
+        string difficulte = "medium",
+        int xp = 20) =>
+        $$"""
+        {"title":"{{titre}}","description":"{{description}}","type":"{{type}}",
+         "stat_target":"{{statCible}}","difficulty":"{{difficulte}}","xp_reward":{{xp}}}
+        """;
+
     private static string Charge(
         string titre = "L'Épreuve du Guerrier",
         string description = DescriptionSaine,
@@ -59,11 +75,7 @@ public class GeminiQuestGenerationAgentTests
         string statCible = "FOR",
         string difficulte = "medium",
         int xp = 20) =>
-        EnveloppeGemini(
-            $$"""
-            {"title":"{{titre}}","description":"{{description}}","type":"{{type}}",
-             "stat_target":"{{statCible}}","difficulty":"{{difficulte}}","xp_reward":{{xp}}}
-            """);
+        EnveloppeGemini(ChargeJson(titre, description, type, statCible, difficulte, xp));
 
     private static Task<QuestGenerationAgentResult> Generer(FauxHttpMessageHandler transport) =>
         Agent(transport).ExecuteAsync(Requete, CancellationToken.None);
@@ -174,6 +186,38 @@ public class GeminiQuestGenerationAgentTests
             FauxHttpMessageHandler.Repond(EnveloppeGemini("ceci n'est pas du JSON non plus")));
 
         resultat.EstRepli.Should().BeTrue();
+    }
+
+    // Le mode JSON de Gemini n'empêche pas le modèle d'encadrer sa réponse de barrières
+    // markdown — c'est son réflexe le plus tenace. Le contenu est parfaitement valide ;
+    // n'en retenir que le repli servirait au Chasseur un texte générique pour trois
+    // caractères de décoration.
+    [Fact]
+    public async Task Retient_la_quete_encadree_de_barrieres_markdown()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(EnveloppeGemini(
+            $"```json\n{ChargeJson()}\n```")));
+
+        resultat.EstRepli.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Retient_le_titre_d_une_quete_encadree_de_barrieres_markdown()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(EnveloppeGemini(
+            $"```json\n{ChargeJson()}\n```")));
+
+        resultat.Title.Should().Be("L'Épreuve du Guerrier");
+    }
+
+    // Sans annonce de langage, et avec les espaces que le modèle ajoute volontiers autour.
+    [Fact]
+    public async Task Retient_la_quete_encadree_de_barrieres_markdown_sans_langage()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(EnveloppeGemini(
+            $"  ```\n{ChargeJson()}\n```  ")));
+
+        resultat.EstRepli.Should().BeFalse();
     }
 
     [Fact]
