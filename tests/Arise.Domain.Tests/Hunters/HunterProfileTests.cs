@@ -288,6 +288,35 @@ public class HunterProfileTests
         profil.StreakCurrent.Should().Be(1);
     }
 
+    // Le jour du Chasseur peut reculer sans qu'il ait rien fait d'anormal : la tablette restée
+    // à Paris compte déjà le 26 quand le téléphone passé à New York en est encore au 25, et un
+    // vol vers l'ouest produit exactement la même chose. Sans garde, la date antérieure tombe
+    // dans la branche « trou de deux jours ou plus » et fait retomber la série à 1 — une perte
+    // que le Chasseur n'a pas méritée.
+    [Fact]
+    public void RegisterDailyCompletion_un_jour_anterieur_ne_fait_pas_retomber_la_serie()
+    {
+        var profil = HunterProfile.Create();
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 24));
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 25));
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 26)); // série de 3.
+
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 25)); // le jour recule.
+
+        profil.StreakCurrent.Should().Be(3);
+    }
+
+    [Fact]
+    public void RegisterDailyCompletion_un_jour_anterieur_ne_recule_pas_la_derniere_completion()
+    {
+        var profil = HunterProfile.Create();
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 26));
+
+        profil.RegisterDailyCompletion(new DateOnly(2026, 7, 25));
+
+        profil.LastCompletionDate.Should().Be(new DateOnly(2026, 7, 26));
+    }
+
     [Fact]
     public void RegisterDailyCompletion_met_a_jour_le_record_de_la_plus_longue_serie()
     {

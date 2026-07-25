@@ -99,12 +99,19 @@ public sealed class HunterProfile
     /// date <paramref name="today"/> (fuseau horaire du Chasseur — l'appelant est responsable
     /// de convertir avant d'appeler). Fonction pure : date + état → nouvel état, idempotente
     /// pour deux appels le même jour.
+    ///
+    /// <para>Un jour <b>antérieur</b> à la dernière complétion connue ne change rien non plus.
+    /// Le jour du Chasseur peut reculer sans qu'il ait rien fait d'anormal — deux appareils
+    /// réglés sur des fuseaux différents, un vol vers l'ouest — et la date antérieure tomberait
+    /// sinon dans la branche « trou de deux jours ou plus », faisant retomber à 1 une série de
+    /// cinq jours. La série ne recule pas : c'est un compteur d'engagement, pas un journal, et
+    /// aucune information n'y est assez précieuse pour valoir cette perte.</para>
     /// </summary>
     public void RegisterDailyCompletion(DateOnly today)
     {
-        if (LastCompletionDate == today)
+        if (LastCompletionDate is { } derniereCompletion && today <= derniereCompletion)
         {
-            // Déjà comptabilisé aujourd'hui : ni la série ni le record n'ont à bouger.
+            // Déjà comptabilisé ce jour-là, ou jour révolu : ni la série ni le record ne bougent.
             return;
         }
 

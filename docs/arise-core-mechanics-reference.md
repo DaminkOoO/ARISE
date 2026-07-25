@@ -91,8 +91,8 @@ la complétion, la logique de série reste centralisée à un seul endroit.
 
 ```
 RegisterDailyCompletion(today):
-    si LastCompletionDate == today:
-        ne rien faire  # déjà comptabilisé aujourd'hui
+    si LastCompletionDate != null et today <= LastCompletionDate:
+        ne rien faire  # déjà comptabilisé ce jour-là, ou jour révolu — voir ci-dessous
     sinon si LastCompletionDate == today - 1 jour:
         StreakCurrent += 1
     sinon:
@@ -100,6 +100,18 @@ RegisterDailyCompletion(today):
     LastCompletionDate = today
     StreakLongest = max(StreakLongest, StreakCurrent)
 ```
+
+**La série ne recule jamais.** Le jour du Chasseur peut reculer sans qu'il ait rien fait
+d'anormal : deux appareils réglés sur des fuseaux différents (tablette restée à Paris, où il
+est déjà le 26 ; téléphone passé à New York, où il est encore le 25), un vol vers l'ouest, un
+changement manuel de fuseau. Sans la garde `today <= LastCompletionDate`, cette date antérieure
+tombe dans la branche « trou de ≥2 jours » et fait retomber à 1 une série de cinq jours — une
+perte que le Chasseur n'a pas méritée. Le prix accepté en échange : une complétion tardive
+rattrapant un jour déjà dépassé n'ajoute pas de maillon rétroactif. `StreakCurrent` est un
+compteur d'engagement, pas un journal ; recalculer la série depuis un historique de complétions
+demanderait ce journal, qui n'existe pas.
+
+Budget, Habitudes et Calendrier appellent cette même méthode : la garde vaut pour eux tous.
 
 ### Rupture de série (`HunterProfile.CheckStreakBreak(today)`)
 Appelé une fois par jour par le `briefing-worker`, **avant** la génération des quêtes du jour.
