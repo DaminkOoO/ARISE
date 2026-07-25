@@ -23,6 +23,15 @@ public class AwardXpCommandHandlerTests
 
     private AwardXpCommandHandler Handler() => new(_profils, _publisher);
 
+    /// <summary>
+    /// L'enveloppe attendue, typée <see cref="INotification"/> comme au site d'appel : le
+    /// handler ne connaît que des <c>IDomainEvent</c> et publie ce que la fabrique lui rend.
+    /// Typer l'attente sur le générique refermé viserait une autre surcharge de
+    /// <see cref="IPublisher.Publish{T}"/>, que le handler n'appelle jamais.
+    /// </summary>
+    private static INotification Enveloppe(HunterRankedUpEvent evenement) =>
+        new DomainEventNotification<HunterRankedUpEvent>(evenement);
+
     private Task<AwardXpResult> Attribuer(Guid hunterProfileId, int montant) =>
         Handler().Handle(new AwardXpCommand(hunterProfileId, montant), CancellationToken.None);
 
@@ -57,6 +66,9 @@ public class AwardXpCommandHandlerTests
             profil.Id, profil.Level, profil.Rank, profil.CurrentXp, profil.XpToNextLevel));
     }
 
+    // Arg.Any<INotification>() et non Arg.Any<object>() : la surcharge non générique de
+    // IPublisher n'est jamais celle qu'emprunte le handler, et l'attente y était donc vide de
+    // sens — elle serait restée verte même si le handler publiait à tort.
     [Fact]
     public async Task Ne_publie_aucun_evenement_quand_aucun_rang_n_est_franchi()
     {
@@ -64,7 +76,8 @@ public class AwardXpCommandHandlerTests
 
         await Attribuer(profil.Id, montant: 50);
 
-        await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        await _publisher.DidNotReceive().Publish(
+            Arg.Any<INotification>(), Arg.Any<CancellationToken>());
     }
 
     // 520 XP amène pile du niveau 1 (rang E) au niveau 5 (rang D) : une seule frontière de
@@ -77,7 +90,7 @@ public class AwardXpCommandHandlerTests
         await Attribuer(profil.Id, montant: 520);
 
         await _publisher.Received(1).Publish(
-            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
+            Enveloppe(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
             Arg.Any<CancellationToken>());
     }
 
@@ -92,10 +105,10 @@ public class AwardXpCommandHandlerTests
         await Attribuer(profil.Id, montant: 1620);
 
         await _publisher.Received(1).Publish(
-            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
+            Enveloppe(new HunterRankedUpEvent(profil.Id, HunterRank.E, HunterRank.D)),
             Arg.Any<CancellationToken>());
         await _publisher.Received(1).Publish(
-            new DomainEventNotification(new HunterRankedUpEvent(profil.Id, HunterRank.D, HunterRank.C)),
+            Enveloppe(new HunterRankedUpEvent(profil.Id, HunterRank.D, HunterRank.C)),
             Arg.Any<CancellationToken>());
     }
 
@@ -131,6 +144,7 @@ public class AwardXpCommandHandlerTests
         var acte = () => Attribuer(idInconnu, montant: 50);
 
         await acte.Should().ThrowAsync<HunterProfileNotFoundException>();
-        await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        await _publisher.DidNotReceive().Publish(
+            Arg.Any<INotification>(), Arg.Any<CancellationToken>());
     }
 }

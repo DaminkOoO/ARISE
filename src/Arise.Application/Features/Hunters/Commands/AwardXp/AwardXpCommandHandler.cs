@@ -31,7 +31,8 @@ public sealed class AwardXpCommandHandler(
         // sa propre réaction (notification, déblocage) en aval.
         foreach (var domainEvent in profile.DomainEvents)
         {
-            await publisher.Publish(new DomainEventNotification(domainEvent), cancellationToken);
+            await publisher.Publish(
+                DomainEventNotification.Envelopper(domainEvent), cancellationToken);
         }
 
         profile.ClearDomainEvents();
