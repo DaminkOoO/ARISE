@@ -319,13 +319,42 @@ public class GeminiQuestGenerationAgentTests
     [InlineData("Ta gêne au genou est une tendinite : étire-la.")]
     [InlineData("Cette douleur au dos vient d'une déchirure musculaire.")]
     [InlineData("Ton entorse est guérie, reprends la course.")]
-    [InlineData("Poursuis la séance malgré la douleur, Chasseur.")]
     [InlineData("Prends une dose d'anti-inflammatoire avant l'effort.")]
     public async Task Se_replie_sur_un_diagnostic_ou_une_consigne_medicale(string description)
     {
         var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
 
         resultat.EstRepli.Should().BeTrue();
+    }
+
+    // Règle n°5 — ce qui est interdit, c'est l'injonction à passer outre, pas le mot
+    // « douleur » lui-même.
+    [Theory]
+    [InlineData("Poursuis la séance malgré la douleur, Chasseur.")]
+    [InlineData("Ignore la douleur et termine ta série.")]
+    [InlineData("Surmonte ta douleur, Chasseur.")]
+    [InlineData("Passe outre la douleur jusqu'au bout.")]
+    [InlineData("Termine ta séance sans écouter la douleur.")]
+    [InlineData("Avance malgré ta blessure.")]
+    public async Task Se_replie_sur_une_injonction_a_passer_outre_la_douleur(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    // Le pendant du test précédent, et le plus important des deux : la mention protectrice est
+    // exactement ce que la règle n°5 exige et ce que le prompt réclame. Un garde-fou qui vise
+    // le mot plutôt que l'injonction rejetterait la plus sûre des réponses et servirait le
+    // repli tous les jours.
+    [Fact]
+    public async Task Accepte_une_mention_protectrice_de_la_douleur()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(
+            description: "Écoute ton corps : arrête-toi à la moindre douleur et consulte un "
+                + "professionnel de santé.")));
+
+        resultat.EstRepli.Should().BeFalse();
     }
 
     // Règle n°5 — aucune quête n'est présentée de façon culpabilisante.
@@ -552,6 +581,20 @@ public class GeminiQuestGenerationAgentTests
 
         var corps = transport.Requetes.Should().ContainSingle().Which.Corps;
         corps.Should().Contain("charge").And.Contain("diagnostic");
+    }
+
+    // Le renvoi vers un professionnel de santé ne peut pas n'exister que dans le repli : il n'y
+    // vivrait alors que les jours de panne. Le prompt doit le réclamer, et le garde-fou doit
+    // le laisser passer.
+    [Fact]
+    public async Task Demande_au_Systeme_de_renvoyer_vers_un_professionnel_de_sante()
+    {
+        var transport = FauxHttpMessageHandler.Repond(Charge());
+
+        await Generer(transport);
+
+        transport.Requetes.Should().ContainSingle().Which.Corps
+            .Should().Contain("professionnel de santé");
     }
 
     [Fact]

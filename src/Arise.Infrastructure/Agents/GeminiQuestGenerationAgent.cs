@@ -68,18 +68,37 @@ internal sealed class GeminiQuestGenerationAgent(
 
     /// <summary>
     /// Vocabulaire qu'une quête n'a aucune raison d'employer : diagnostic et interprétation de
-    /// symptôme, registre médical, injonction à passer outre la douleur, et reproche.
+    /// symptôme, registre médical, et reproche.
     ///
     /// <para>S'applique au texte débarrassé de ses accents, pour qu'un « echoue » sans accent
     /// ne passe pas au travers. Les faux positifs coûtent une nouvelle tentative puis une
     /// quête de repli sûre : jamais une quête douteuse affichée au Chasseur.</para>
+    ///
+    /// <para><b>« douleur » et « blessure » n'y figurent pas</b>, et c'est délibéré : la règle
+    /// n°5 <i>exige</i> qu'une mention de douleur renvoie vers un professionnel de santé. Les
+    /// bannir rejetterait « arrête-toi à la moindre douleur et consulte un professionnel de
+    /// santé » — la plus sûre des réponses, et celle que le prompt réclame. Ce qui est interdit
+    /// est l'injonction à passer outre : voir <see cref="InjonctionAPasserOutre"/>.</para>
     /// </summary>
     private static readonly Regex VocabulaireInterdit = new(
-        @"\b(?:blessure|blesse|blessee|tendinite|entorse|claquage|dechirure|fracture"
+        @"\b(?:tendinite|entorse|claquage|dechirure|fracture"
         + @"|diagnostic|symptome|pathologie|inflammation|anti-?inflammatoire|ordonnance"
-        + @"|posologie|dose|medicament|traitement|therapie|douleur|souffrance|regime"
+        + @"|posologie|dose|medicament|traitement|therapie|regime"
         + @"|honte|paresse|paresseux|paresseuse|faineant|mediocre|lamentable|indigne"
         + @"|decevant|decu|echec|echoue|echouee)s?\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
+    /// L'injonction à s'entraîner malgré un signal du corps — le vrai danger de la règle n°5,
+    /// là où le mot « douleur » seul n'en est pas un.
+    /// </summary>
+    private static readonly Regex InjonctionAPasserOutre = new(
+        @"\b(?:malgre|surmonte|surmonter|surmontant|ignore|ignorer|ignorant|depasse|depasser"
+        + @"|encaisse|encaisser|endure|endurer|passer?\s+outre|sans\s+ecouter"
+        + @"|sans\s+tenir\s+compte(?:\s+de)?)"
+        + @"\s+(?:l[ae]|ta|ton|tes|ce|cette|toute|la\s+moindre)?\s*"
+        + @"(?:douleurs?|souffrances?|blessures?|genes?|inconforts?|signaux?|signal)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(1));
 
@@ -291,10 +310,18 @@ internal sealed class GeminiQuestGenerationAgent(
             return "une quête ne prescrit ni charge, ni allure, ni calories, ni pourcentage d'effort";
         }
 
-        if (VocabulaireInterdit.IsMatch(SansAccents(texte)))
+        var normalise = SansAccents(texte);
+
+        if (InjonctionAPasserOutre.IsMatch(normalise))
         {
-            return "une quête ne pose aucun diagnostic, ne parle jamais de douleur à surmonter "
-                + "et ne formule jamais de reproche";
+            return "une quête n'invite jamais à s'entraîner malgré une douleur : elle invite au "
+                + "contraire à s'arrêter et à consulter un professionnel de santé";
+        }
+
+        if (VocabulaireInterdit.IsMatch(normalise))
+        {
+            return "une quête ne pose aucun diagnostic, ne prescrit aucun traitement et ne "
+                + "formule jamais de reproche";
         }
 
         return null;
@@ -381,6 +408,9 @@ internal sealed class GeminiQuestGenerationAgent(
             .Append("aucune allure, aucune dépense en calories, aucun pourcentage d'effort.")
             .Append("\n- Aucun diagnostic, aucune interprétation de symptôme, aucun conseil de ")
             .Append("traitement. Le Chasseur s'arrête quand il le décide.")
+            .Append("\n- Termine la description en l'invitant à écouter son corps, à s'arrêter ")
+            .Append("s'il ressent une douleur et à consulter un professionnel de santé si elle ")
+            .Append("persiste. Ne lui demande jamais de poursuivre malgré une douleur.")
             .Append("\n- Jamais de reproche ni de culpabilisation, même si la série est à zéro.")
             .Append(CultureInfo.InvariantCulture, $"\n- Le titre tient en {Quest.LongueurMaximaleTitre} ")
             .Append(CultureInfo.InvariantCulture, $"caractères, la description en {Quest.LongueurMaximaleDescription}.")
