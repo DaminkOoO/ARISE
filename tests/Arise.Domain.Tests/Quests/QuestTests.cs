@@ -299,4 +299,126 @@ public class QuestTests
 
         quete.IsFallback.Should().BeTrue();
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Complétion. La garde d'idempotence vit ici, dans l'entité : le double-tap sur le bouton et
+    // le renvoi réseau du client sont deux chemins distincts vers le même appel, et aucun handler
+    // ne peut promettre d'être seul.
+    // ---------------------------------------------------------------------------------------
+
+    // 23h30 le 25 à New York, soit déjà le 26 en UTC : l'instant qui distingue le jour du
+    // Chasseur du jour du serveur. L'appelant convertit avant d'appeler, exactement comme pour
+    // la génération de la quête du jour.
+    private static readonly DateTimeOffset VingtTroisHeuresTrenteANewYork =
+        new(2026, 7, 25, 23, 30, 0, TimeSpan.FromHours(-4));
+
+    [Fact]
+    public void Marque_la_quete_comme_completee()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.IsCompleted.Should().BeTrue();
+    }
+
+    // Stocké en UTC : Npgsql refuse d'écrire un DateTimeOffset décalé dans un timestamptz, et
+    // l'instant absolu est de toute façon la seule part de cette date qui survive à la relecture.
+    [Fact]
+    public void Enregistre_l_instant_de_completion_en_UTC()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 26, 3, 30, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Annonce_avoir_complete_la_quete_au_premier_appel()
+    {
+        Generer().Complete(VingtTroisHeuresTrenteANewYork).Should().BeTrue();
+    }
+
+    // Le retour est ce qui permet au handler de n'attribuer l'XP qu'une fois : deux appels, un
+    // seul gain. Sans lui, il faudrait relire IsCompleted avant d'appeler — et deux appels
+    // concurrents passeraient tous deux le test.
+    [Fact]
+    public void Annonce_ne_rien_avoir_complete_a_la_seconde_completion()
+    {
+        var quete = Generer();
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork.AddHours(1)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Ne_deplace_pas_l_instant_de_completion_a_la_seconde_completion()
+    {
+        var quete = Generer();
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork.AddHours(1));
+
+        quete.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 26, 3, 30, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Leve_un_evenement_de_completion()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.DomainEvents.Should().ContainSingle()
+            .Which.Should().BeOfType<QuestCompletedEvent>();
+    }
+
+    [Fact]
+    public void Rattache_l_evenement_de_completion_au_Chasseur_et_a_sa_quete()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.DomainEvents.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new
+            {
+                QuestId = quete.Id,
+                HunterProfileId = Chasseur,
+                Type = QuestType.Quotidienne,
+            });
+    }
+
+    // Le piège de date de la série : à 23h30 à New York, le serveur est déjà le lendemain en UTC.
+    // Compter ce jour-là pour le 26 volerait au Chasseur la journée qu'il vient de tenir.
+    [Fact]
+    public void Date_l_evenement_du_jour_du_Chasseur_et_non_de_celui_du_serveur()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.DomainEvents.Should().ContainSingle()
+            .Which.As<QuestCompletedEvent>().JourDuChasseur.Should().Be(new DateOnly(2026, 7, 25));
+    }
+
+    // Le risque n°1 de la complétion : deux événements, c'est deux fois l'XP en aval.
+    [Fact]
+    public void Ne_leve_aucun_evenement_a_la_seconde_completion()
+    {
+        var quete = Generer();
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+        quete.ClearDomainEvents();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork.AddHours(1));
+
+        quete.DomainEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Ne_leve_aucun_evenement_de_completion_a_la_generation()
+    {
+        Generer().DomainEvents.Should().BeEmpty();
+    }
 }

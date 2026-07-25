@@ -1,3 +1,5 @@
+using Arise.Domain.Common;
+
 namespace Arise.Domain.Quests;
 
 /// <summary>
@@ -21,6 +23,8 @@ public sealed class Quest
 
     /// <inheritdoc cref="LongueurMaximaleTitre"/>
     public const int LongueurMaximaleDescription = 400;
+
+    private readonly List<IDomainEvent> _domainEvents = [];
 
     private Quest()
     {
@@ -55,6 +59,57 @@ public sealed class Quest
     /// champ, donc pas de drapeau qui puisse contredire la date.
     /// </summary>
     public bool IsCompleted => CompletedAt is not null;
+
+    /// <summary>
+    /// Événements accumulés depuis la dernière <see cref="ClearDomainEvents"/> — à publier par la
+    /// couche Application après persistance, pas à consommer ici.
+    /// </summary>
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+    public void ClearDomainEvents() => _domainEvents.Clear();
+
+    /// <summary>
+    /// Marque la quête comme accomplie et lève <see cref="QuestCompletedEvent"/>.
+    ///
+    /// <para><b>Idempotente</b>, et c'est l'invariant central de cette méthode : un double-tap sur
+    /// le bouton, un renvoi réseau du client ou deux appareils du même Chasseur mènent tous au
+    /// même appel, et aucun handler ne peut promettre d'être seul. La garde vit donc ici, dans
+    /// l'entité, plutôt que dans un <c>if (!quete.IsCompleted)</c> côté handler que le prochain
+    /// domaine — Budget, Habitudes — devrait réécrire à l'identique en espérant ne pas
+    /// l'oublier.</para>
+    /// </summary>
+    /// <param name="instantChezLeChasseur">
+    /// L'instant de la complétion <b>exprimé dans le fuseau du Chasseur</b> : l'appelant convertit
+    /// avant d'appeler, exactement comme pour la génération de la quête du jour. C'est de son
+    /// décalage que se déduit le jour que la série comptera — un instant passé en UTC brut
+    /// daterait la série du jour du serveur.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> si cet appel vient de compléter la quête, <see langword="false"/>
+    /// si elle l'était déjà. C'est ce retour qui permet à l'appelant de n'accorder l'XP qu'une
+    /// fois, sans relire <see cref="IsCompleted"/> lui-même.
+    /// </returns>
+    public bool Complete(DateTimeOffset instantChezLeChasseur)
+    {
+        if (IsCompleted)
+        {
+            return false;
+        }
+
+        // Stocké en UTC : Npgsql refuse d'écrire un DateTimeOffset décalé dans un timestamptz, et
+        // l'instant absolu est de toute façon la seule part de cette date qui survive à la
+        // relecture. Le jour du Chasseur, lui, est déjà figé dans l'événement ci-dessous.
+        CompletedAt = instantChezLeChasseur.ToUniversalTime();
+
+        _domainEvents.Add(new QuestCompletedEvent(
+            Id,
+            HunterProfileId,
+            Domain,
+            Type,
+            DateOnly.FromDateTime(instantChezLeChasseur.DateTime)));
+
+        return true;
+    }
 
     /// <summary>
     /// Pose la quête du jour d'un Chasseur.
