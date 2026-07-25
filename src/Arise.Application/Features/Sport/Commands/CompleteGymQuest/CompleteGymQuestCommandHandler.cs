@@ -53,15 +53,29 @@ public sealed class CompleteGymQuestCommandHandler(
             throw new QuestNotFoundException();
         }
 
-        // L'instant tel que le Chasseur le vit, comme pour la génération de la quête du jour :
-        // c'est de son décalage que l'entité déduit le jour que la série comptera.
-        var maintenant = TimeZoneInfo.ConvertTime(
-            timeProvider.GetUtcNow(),
-            TimeZoneInfo.FindSystemTimeZoneById(request.FuseauHoraire));
+        // Le jour tel que le Chasseur le vit, comme pour la génération de la quête du jour :
+        // c'est lui qui décide si la quête visée est encore accomplissable.
+        var aujourdHuiChezLeChasseur = DateOnly.FromDateTime(
+            TimeZoneInfo.ConvertTime(
+                timeProvider.GetUtcNow(),
+                TimeZoneInfo.FindSystemTimeZoneById(request.FuseauHoraire))
+                .DateTime);
+
+        // Fenêtre de complétion (doc mécaniques, section 2) : le jour de la quête ou la veille.
+        // Sans borne, le Chasseur revenu après dix jours d'absence compléterait les dix quêtes
+        // laissées derrière lui — 10 × 20 XP en une minute. Un jour de battement, et pas zéro :
+        // le tap arrive parfois après minuit, et un changement de fuseau suffit à faire tourner
+        // la date sans que le Chasseur soit en retard.
+        if (quete.QuestDate < aujourdHuiChezLeChasseur.AddDays(-1))
+        {
+            throw new QuestExpiredException();
+        }
 
         // La garde d'idempotence est portée par l'entité : deux appels — double-tap, renvoi
         // réseau, deux appareils — ne donnent qu'une complétion, donc qu'un seul gain d'XP.
-        if (!quete.Complete(maintenant))
+        // L'instant n'est qu'un horodatage : le jour que la série comptera est celui de la
+        // quête, que l'entité porte déjà.
+        if (!quete.Complete(timeProvider.GetUtcNow()))
         {
             return new CompleteGymQuestResult(
                 quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpGagne: 0);

@@ -30,12 +30,13 @@ public class CompleteGymQuestCommandHandlerTests
 
     private readonly Guid _chasseur = Guid.NewGuid();
 
-    private Quest QuetePosee(int xp = 20, QuestDomain domaine = QuestDomain.Sport)
+    private Quest QuetePosee(
+        int xp = 20, QuestDomain domaine = QuestDomain.Sport, DateOnly? jour = null)
     {
         var quete = Quest.Generate(
             _chasseur,
             domaine,
-            new DateOnly(2026, 7, 25),
+            jour ?? new DateOnly(2026, 7, 25),
             "L'Épreuve du Guerrier",
             "Bouge à ton rythme : marche, gainage, étirements.",
             QuestType.Quotidienne,
@@ -358,6 +359,57 @@ public class CompleteGymQuestCommandHandlerTests
 
         await acte.Should().ThrowAsync<QuestNotFoundException>();
         quete.IsCompleted.Should().BeFalse();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Fenêtre de complétion (doc mécaniques, section 2). Sans borne, le Chasseur revenu après
+    // dix jours d'absence compléterait les dix quêtes laissées derrière lui — 10 × 20 XP en une
+    // minute — et la progression cesserait de mesurer quoi que ce soit.
+    // ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Refuse_de_completer_une_quete_de_plus_d_un_jour()
+    {
+        var quete = QuetePosee(jour: new DateOnly(2026, 7, 15));
+
+        var acte = () => Completer(quete.Id);
+
+        await acte.Should().ThrowAsync<QuestExpiredException>();
+    }
+
+    [Fact]
+    public async Task N_accorde_aucun_XP_pour_une_quete_de_plus_d_un_jour()
+    {
+        var quete = QuetePosee(jour: new DateOnly(2026, 7, 15));
+
+        var acte = () => Completer(quete.Id);
+
+        await acte.Should().ThrowAsync<QuestExpiredException>();
+        await _envoi.DidNotReceive().Send(Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Ne_marque_pas_completee_une_quete_de_plus_d_un_jour()
+    {
+        var quete = QuetePosee(jour: new DateOnly(2026, 7, 15));
+
+        var acte = () => Completer(quete.Id);
+
+        await acte.Should().ThrowAsync<QuestExpiredException>();
+        quete.IsCompleted.Should().BeFalse();
+    }
+
+    // Un jour de battement, et pas zéro : le tap arrive parfois après minuit, et un décalage de
+    // fuseau suffit à faire tourner la date sans que le Chasseur soit en retard. L'horloge est
+    // au 25 chez le Chasseur ; la quête de la veille reste accomplissable.
+    [Fact]
+    public async Task Accepte_encore_la_quete_de_la_veille()
+    {
+        var quete = QuetePosee(jour: new DateOnly(2026, 7, 24));
+
+        await Completer(quete.Id);
+
+        quete.IsCompleted.Should().BeTrue();
     }
 
     /// <summary>
