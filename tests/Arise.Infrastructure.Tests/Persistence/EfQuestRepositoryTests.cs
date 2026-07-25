@@ -236,4 +236,96 @@ public class EfQuestRepositoryTests(PostgresFixture postgres)
 
         await acte.Should().ThrowAsync<DbUpdateException>();
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Recherche par identifiant : le chemin de la complétion. Le Chasseur tape sur la quête
+    // qu'il a sous les yeux, dont l'écran connaît l'identifiant — pas le jour ni le domaine.
+    // ---------------------------------------------------------------------------------------
+
+    private async Task<Quest?> RelireParIdentifiant(Guid identifiant)
+    {
+        await using var fournisseur = postgres.Fournisseur();
+        return await fournisseur.GetRequiredService<IQuestRepository>()
+            .GetByIdAsync(identifiant, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Relit_une_quete_par_son_identifiant()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur, titre: "Quête à retrouver par identifiant");
+        await Poser(quete);
+
+        var relue = await RelireParIdentifiant(quete.Id);
+
+        relue.Should().NotBeNull();
+        relue!.Title.Should().Be("Quête à retrouver par identifiant");
+    }
+
+    // Le handler de complétion compare ce rattachement à celui de la commande : sans lui,
+    // n'importe quel Chasseur complèterait les quêtes des autres.
+    [Fact]
+    public async Task Relit_le_Chasseur_auquel_la_quete_est_rattachee()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        var relue = await RelireParIdentifiant(quete.Id);
+
+        relue!.HunterProfileId.Should().Be(chasseur);
+    }
+
+    [Fact]
+    public async Task Rend_null_en_cherchant_une_quete_absente()
+    {
+        var relue = await RelireParIdentifiant(Guid.NewGuid());
+
+        relue.Should().BeNull();
+    }
+
+    // La complétion est la seconde écriture d'une quête déjà posée : le repository doit détecter
+    // la mutation d'une entité qu'il a lui-même chargée, sans ré-insertion ni comparaison
+    // manuelle de champs.
+    [Fact]
+    public async Task Relit_la_completion_d_une_quete_depuis_un_contexte_neuf()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        await using (var completion = postgres.Fournisseur())
+        {
+            var repository = completion.GetRequiredService<IQuestRepository>();
+            var chargee = await repository.GetByIdAsync(quete.Id, CancellationToken.None);
+            chargee!.Complete(new DateTimeOffset(2026, 7, 26, 23, 30, 0, TimeSpan.FromHours(-4)));
+            await repository.SaveAsync(chargee, CancellationToken.None);
+        }
+
+        var relue = await RelireParIdentifiant(quete.Id);
+
+        relue!.IsCompleted.Should().BeTrue();
+    }
+
+    // Npgsql refuse d'écrire un DateTimeOffset décalé dans un timestamptz : l'entité normalise
+    // en UTC, et c'est cet instant absolu qu'on doit retrouver.
+    [Fact]
+    public async Task Relit_l_instant_de_completion_en_UTC()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        await using (var completion = postgres.Fournisseur())
+        {
+            var repository = completion.GetRequiredService<IQuestRepository>();
+            var chargee = await repository.GetByIdAsync(quete.Id, CancellationToken.None);
+            chargee!.Complete(new DateTimeOffset(2026, 7, 26, 23, 30, 0, TimeSpan.FromHours(-4)));
+            await repository.SaveAsync(chargee, CancellationToken.None);
+        }
+
+        var relue = await RelireParIdentifiant(quete.Id);
+
+        relue!.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 27, 3, 30, 0, TimeSpan.Zero));
+    }
 }

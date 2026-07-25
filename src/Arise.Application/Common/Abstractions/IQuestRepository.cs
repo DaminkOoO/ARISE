@@ -22,5 +22,16 @@ public interface IQuestRepository
         DateOnly questDate,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// La quête portant cet identifiant, ou <c>null</c> si aucune. C'est le chemin de la
+    /// complétion : le Chasseur tape sur la quête qu'il a sous les yeux, dont l'écran connaît
+    /// l'identifiant et non le jour ni le domaine.
+    ///
+    /// <para>Ne filtre pas sur le Chasseur : le rattachement se vérifie dans le handler, qui
+    /// peut alors distinguer « quête inconnue » de « quête d'un autre » — et choisir de ne pas
+    /// distinguer les deux dans ce qu'il rend.</para>
+    /// </summary>
+    Task<Quest?> GetByIdAsync(Guid questId, CancellationToken cancellationToken);
+
     Task SaveAsync(Quest quest, CancellationToken cancellationToken);
 }

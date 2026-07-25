@@ -29,6 +29,11 @@ internal sealed class EfQuestRepository(AriseDbContext context) : IQuestReposito
                 && quest.QuestDate == questDate,
             cancellationToken);
 
+    // Suivie, comme GetForDayAsync et pour la même raison : la complétion charge la quête par
+    // cette voie, la mute, et la re-sauvegarde dans le même scope.
+    public Task<Quest?> GetByIdAsync(Guid questId, CancellationToken cancellationToken) =>
+        context.Quests.SingleOrDefaultAsync(quest => quest.Id == questId, cancellationToken);
+
     // Même logique que EfHunterProfileRepository : « nouvelle vs existante » se décide à
     // partir de l'état de suivi, jamais d'une requête d'existence supplémentaire.
     public async Task SaveAsync(Quest quest, CancellationToken cancellationToken)
