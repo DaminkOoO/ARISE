@@ -1,4 +1,4 @@
-using MediatR;
+using Arise.Application.Common.Messaging;
 
 namespace Arise.Application.Features.Sport.Commands.CompleteGymQuest;
 
@@ -16,7 +16,7 @@ namespace Arise.Application.Features.Sport.Commands.CompleteGymQuest;
 public sealed record CompleteGymQuestCommand(
     Guid HunterProfileId,
     Guid QuestId,
-    string FuseauHoraire) : IRequest<CompleteGymQuestResult>;
+    string FuseauHoraire) : ICommand<CompleteGymQuestResult>;
 
 /// <summary>
 /// Ce que la complétion rend à l'écran : le strict nécessaire pour confirmer l'accomplissement

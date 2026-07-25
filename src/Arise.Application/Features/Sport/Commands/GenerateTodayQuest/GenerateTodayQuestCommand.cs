@@ -1,5 +1,5 @@
+using Arise.Application.Common.Messaging;
 using Arise.Domain.Quests;
-using MediatR;
 
 namespace Arise.Application.Features.Sport.Commands.GenerateTodayQuest;
 
@@ -12,4 +12,4 @@ namespace Arise.Application.Features.Sport.Commands.GenerateTodayQuest;
 /// au soir pour le lendemain.</para>
 /// </summary>
 public sealed record GenerateTodayQuestCommand(Guid HunterProfileId, DateOnly QuestDate)
-    : IRequest<Quest>;
+    : ICommand<Quest>;

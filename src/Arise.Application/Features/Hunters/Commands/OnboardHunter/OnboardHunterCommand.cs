@@ -1,5 +1,5 @@
+using Arise.Application.Common.Messaging;
 using Arise.Domain.Hunters;
-using MediatR;
 
 namespace Arise.Application.Features.Hunters.Commands.OnboardHunter;
 
@@ -13,7 +13,7 @@ namespace Arise.Application.Features.Hunters.Commands.OnboardHunter;
 /// exposera l'endpoint — hors périmètre de celle-ci.</para>
 /// </summary>
 public sealed record OnboardHunterCommand(IReadOnlyList<HunterGoal> Objectifs)
-    : IRequest<OnboardHunterResult>;
+    : ICommand<OnboardHunterResult>;
 
 /// <summary>
 /// Le profil fraîchement créé, avec la narration d'Éveil qui l'accompagne.

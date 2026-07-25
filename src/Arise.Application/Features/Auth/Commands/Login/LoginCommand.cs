@@ -1,8 +1,8 @@
-using MediatR;
+using Arise.Application.Common.Messaging;
 
 namespace Arise.Application.Features.Auth.Commands.Login;
 
-public sealed record LoginCommand(string Username, string Password) : IRequest<LoginResult>;
+public sealed record LoginCommand(string Username, string Password) : ICommand<LoginResult>;
 
 /// <summary>
 /// Ce que la connexion renvoie : le jeton et sa date de péremption. Ni empreinte, ni mot de

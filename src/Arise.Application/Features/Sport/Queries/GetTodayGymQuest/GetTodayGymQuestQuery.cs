@@ -1,5 +1,5 @@
+using Arise.Application.Common.Messaging;
 using Arise.Domain.Quests;
-using MediatR;
 
 namespace Arise.Application.Features.Sport.Queries.GetTodayGymQuest;
 
@@ -7,7 +7,7 @@ namespace Arise.Application.Features.Sport.Queries.GetTodayGymQuest;
 /// La quête de sport du jour d'un Chasseur.
 /// </summary>
 public sealed record GetTodayGymQuestQuery(Guid HunterProfileId, string FuseauHoraire)
-    : IRequest<GetTodayGymQuestResult>;
+    : IQuery<GetTodayGymQuestResult>;
 
 /// <summary>
 /// La quête du jour telle que l'écran Sport l'affiche.

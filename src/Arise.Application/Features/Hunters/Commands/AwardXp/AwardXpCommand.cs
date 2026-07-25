@@ -1,5 +1,5 @@
+using Arise.Application.Common.Messaging;
 using Arise.Domain.Hunters;
-using MediatR;
 
 namespace Arise.Application.Features.Hunters.Commands.AwardXp;
 
@@ -8,7 +8,7 @@ namespace Arise.Application.Features.Hunters.Commands.AwardXp;
 /// habitude, calendrier) : c'est le point d'entrée unique du moteur de progression, jamais
 /// dupliqué par domaine appelant.
 /// </summary>
-public sealed record AwardXpCommand(Guid HunterProfileId, int Montant) : IRequest<AwardXpResult>;
+public sealed record AwardXpCommand(Guid HunterProfileId, int Montant) : ICommand<AwardXpResult>;
 
 /// <summary>
 /// L'état du profil après attribution — de quoi rafraîchir l'affichage sans requête

@@ -1,9 +1,9 @@
-using MediatR;
+using Arise.Application.Common.Messaging;
 
 namespace Arise.Application.Features.Auth.Commands.RegisterUser;
 
 public sealed record RegisterUserCommand(string Username, string Password)
-    : IRequest<RegisterUserResult>;
+    : ICommand<RegisterUserResult>;
 
 /// <summary>
 /// Ce que l'inscription renvoie : de quoi identifier le compte créé, et rien de plus. Ni

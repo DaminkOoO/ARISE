@@ -1,3 +1,4 @@
+using Arise.Application.Common.Messaging;
 using FluentValidation;
 using MediatR;
 
@@ -17,8 +18,14 @@ namespace Arise.Application.Common.Diagnostics;
 /// <para>Le trio est <c>internal</c> : invisible hors de l'assembly, il n'est atteignable
 /// par aucun endpoint et ne pèse pas sur la surface publique de la couche Application.
 /// Le projet de tests y accède via <c>InternalsVisibleTo</c>.</para>
+///
+/// <para><see cref="IQuery{TResponse}"/> et non <see cref="ICommand{TResponse}"/> : la sonde
+/// ne mute rien, et n'a donc aucune raison d'exiger une transaction. C'est aussi ce qui lui
+/// permet de traverser un <c>AddApplication()</c> nu — un provider monté sans la couche
+/// Infrastructure, comme le font les tests de câblage du pipeline, n'a pas d'unité de travail
+/// à offrir.</para>
 /// </summary>
-internal sealed record PipelineValidationProbe(string Valeur) : IRequest<string>;
+internal sealed record PipelineValidationProbe(string Valeur) : IQuery<string>;
 
 internal sealed class PipelineValidationProbeHandler
     : IRequestHandler<PipelineValidationProbe, string>
