@@ -145,7 +145,7 @@ sûre plutôt que de faire échouer la requête utilisateur.
   "type": "daily",
   "stat_target": "FOR",
   "difficulty": "medium",
-  "xp_reward": 30
+  "xp_reward": 20
 }
 ```
 
