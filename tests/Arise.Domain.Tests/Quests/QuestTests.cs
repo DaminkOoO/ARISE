@@ -195,4 +195,98 @@ public class QuestTests
 
         quete.XpReward.Should().Be(10);
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Réécriture d'une quête de repli : la seule mutation de texte que le modèle admette.
+    // Trois secondes d'indisponibilité du Système à 7h00 ne peuvent pas condamner le Chasseur
+    // au texte générique jusqu'à minuit.
+    // ---------------------------------------------------------------------------------------
+
+    private static Quest ReplePose() => Generer(
+        titre: "Éveil du Corps",
+        description: "Bouge à ton rythme aujourd'hui, Chasseur.",
+        difficulte: QuestDifficulty.Facile,
+        xp: 10,
+        estRepli: true);
+
+    private static void Reecrire(
+        Quest quete,
+        string titre = "L'Épreuve du Guerrier",
+        int xp = 20,
+        bool estRepli = false) =>
+        quete.RegenerateFallback(
+            titre,
+            "Bouge à ton rythme : marche, gainage, étirements.",
+            QuestType.Quotidienne,
+            QuestStat.Force,
+            QuestDifficulty.Moyenne,
+            xp,
+            estRepli);
+
+    [Fact]
+    public void Reecrit_le_titre_d_une_quete_de_repli()
+    {
+        var quete = ReplePose();
+
+        Reecrire(quete);
+
+        quete.Title.Should().Be("L'Épreuve du Guerrier");
+    }
+
+    [Fact]
+    public void Ne_marque_plus_comme_repli_une_quete_reecrite_par_le_Systeme()
+    {
+        var quete = ReplePose();
+
+        Reecrire(quete);
+
+        quete.IsFallback.Should().BeFalse();
+    }
+
+    // La quête garde son identité : c'est la même ligne, pas une seconde qui heurterait l'index
+    // unique du jour.
+    [Fact]
+    public void Conserve_l_identifiant_de_la_quete_reecrite()
+    {
+        var quete = ReplePose();
+        var identifiant = quete.Id;
+
+        Reecrire(quete);
+
+        quete.Id.Should().Be(identifiant);
+    }
+
+    // Une quête réellement générée ne se réécrit pas : le texte que le Chasseur a lu le matin
+    // est celui qu'il retrouve le soir.
+    [Fact]
+    public void Refuse_de_reecrire_une_quete_reellement_generee()
+    {
+        var quete = Generer();
+
+        var acte = () => Reecrire(quete);
+
+        acte.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Refuse_de_reecrire_un_repli_avec_une_recompense_hors_bareme()
+    {
+        var quete = ReplePose();
+
+        var acte = () => Reecrire(quete, xp: 60);
+
+        acte.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    // Le Système peut être encore indisponible à la seconde tentative : la quête reste alors un
+    // repli, et le rafraîchissement suivant retentera.
+    [Fact]
+    public void Reste_un_repli_quand_le_Systeme_n_a_toujours_rien_rendu()
+    {
+        var quete = ReplePose();
+
+        Reecrire(quete, estRepli: true);
+
+        quete.IsFallback.Should().BeTrue();
+    }
 }

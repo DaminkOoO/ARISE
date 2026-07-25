@@ -66,6 +66,19 @@ public class GetTodayGymQuestQueryHandlerTests
             10,
             isFallback: false);
 
+    private Quest RepliDejaPose(DateOnly jour) =>
+        Quest.Generate(
+            _profil.Id,
+            QuestDomain.Sport,
+            jour,
+            "Éveil du Corps",
+            "Bouge à ton rythme aujourd'hui, Chasseur.",
+            QuestType.Quotidienne,
+            QuestStat.Force,
+            QuestDifficulty.Facile,
+            10,
+            isFallback: true);
+
     private void PoserLaQueteDuJour(DateOnly jour, Quest quete) =>
         _quetes.GetForDayAsync(_profil.Id, QuestDomain.Sport, jour, Arg.Any<CancellationToken>())
             .Returns(quete);
@@ -113,6 +126,19 @@ public class GetTodayGymQuestQueryHandlerTests
             Arg.Is<GenerateTodayQuestCommand>(commande =>
                 commande != null && commande.HunterProfileId == _profil.Id),
             Arg.Any<CancellationToken>());
+    }
+
+    // Trois secondes d'indisponibilité du Système à 7h00 condamnaient le Chasseur au texte
+    // générique jusqu'à minuit, même rétabli à 7h05 : un repli non complété se retente.
+    [Fact]
+    public async Task Redemande_une_generation_quand_la_quete_posee_est_un_repli()
+    {
+        PoserLaQueteDuJour(new DateOnly(2026, 7, 26), RepliDejaPose(new DateOnly(2026, 7, 26)));
+
+        await Demander();
+
+        await _envoi.Received(1).Send(
+            Arg.Any<GenerateTodayQuestCommand>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

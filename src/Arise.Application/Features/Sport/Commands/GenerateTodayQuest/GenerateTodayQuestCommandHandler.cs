@@ -25,9 +25,38 @@ public sealed class GenerateTodayQuestCommandHandler(
         var profil = await hunterProfiles.GetByIdAsync(request.HunterProfileId, cancellationToken)
             ?? throw new HunterProfileNotFoundException();
 
+        // La commande relit elle-même : elle est envoyée aussi bien par la requête de lecture
+        // que, demain, par le briefing-worker, et ne peut pas supposer que son appelant a déjà
+        // regardé. C'est aussi ce qui évite de rappeler le Système pour rien.
+        var dejaPosee = await quests.GetForDayAsync(
+            profil.Id, QuestDomain.Sport, request.QuestDate, cancellationToken);
+
+        // Une quête réellement générée est intouchable : le texte lu le matin est celui qu'on
+        // retrouve le soir. Seul un repli se réécrit.
+        if (dejaPosee is { IsFallback: false })
+        {
+            return dejaPosee;
+        }
+
         var generee = await questGenerationAgent.ExecuteAsync(
             new QuestGenerationAgentRequest(profil.Level, profil.Rank, profil.StreakCurrent),
             cancellationToken);
+
+        if (dejaPosee is not null)
+        {
+            dejaPosee.RegenerateFallback(
+                generee.Title,
+                generee.Description,
+                generee.Type,
+                generee.StatTarget,
+                generee.Difficulty,
+                generee.XpReward,
+                generee.EstRepli);
+
+            await quests.SaveAsync(dejaPosee, cancellationToken);
+
+            return dejaPosee;
+        }
 
         var quete = Quest.Generate(
             profil.Id,

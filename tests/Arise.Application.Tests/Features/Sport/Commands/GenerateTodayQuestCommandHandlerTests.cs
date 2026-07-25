@@ -170,13 +170,82 @@ public class GenerateTodayQuestCommandHandlerTests
         var concurrente = QueteConcurrente();
         _quetes.SaveAsync(Arg.Any<Quest>(), Arg.Any<CancellationToken>())
             .Returns(_ => throw new QuestAlreadyPosedException());
+        // Rien au moment de générer, la quête gagnante à la relecture : c'est la course
+        // elle-même, dont la fenêtre couvre tout l'appel au Système.
         _quetes.GetForDayAsync(_profil.Id, QuestDomain.Sport, Jour, Arg.Any<CancellationToken>())
-            .Returns(concurrente);
+            .Returns(_ => null, _ => concurrente);
 
         var quete = await Generer();
 
         quete.Should().BeSameAs(concurrente);
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Le repli n'est pas figé pour 24 h : trois secondes d'indisponibilité à 7h00 ne peuvent
+    // pas condamner le Chasseur au texte générique jusqu'à minuit.
+    // ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Reecrit_le_repli_deja_pose_au_lieu_d_en_poser_un_second()
+    {
+        var repli = RepliDejaPose();
+        PoserLaQueteDuJour(repli);
+
+        await Generer();
+
+        repli.Title.Should().Be("L'Épreuve du Guerrier");
+    }
+
+    [Fact]
+    public async Task Persiste_le_repli_reecrit()
+    {
+        var repli = RepliDejaPose();
+        PoserLaQueteDuJour(repli);
+
+        await Generer();
+
+        await _quetes.Received(1).SaveAsync(repli, Arg.Any<CancellationToken>());
+    }
+
+    // Une quête réellement générée est intouchable : le texte lu le matin est celui qu'on
+    // retrouve le soir.
+    [Fact]
+    public async Task Rend_telle_quelle_une_quete_deja_reellement_generee()
+    {
+        var deja = QueteConcurrente();
+        PoserLaQueteDuJour(deja);
+
+        var quete = await Generer();
+
+        quete.Should().BeSameAs(deja);
+    }
+
+    [Fact]
+    public async Task N_interroge_pas_le_Systeme_quand_une_quete_reelle_est_deja_posee()
+    {
+        PoserLaQueteDuJour(QueteConcurrente());
+
+        await Generer();
+
+        await _agent.DidNotReceive().ExecuteAsync(
+            Arg.Any<QuestGenerationAgentRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    private void PoserLaQueteDuJour(Quest quete) =>
+        _quetes.GetForDayAsync(_profil.Id, QuestDomain.Sport, Jour, Arg.Any<CancellationToken>())
+            .Returns(quete);
+
+    private Quest RepliDejaPose() => Quest.Generate(
+        _profil.Id,
+        QuestDomain.Sport,
+        Jour,
+        "Éveil du Corps",
+        "Bouge à ton rythme aujourd'hui, Chasseur.",
+        QuestType.Quotidienne,
+        QuestStat.Force,
+        QuestDifficulty.Facile,
+        10,
+        isFallback: true);
 
     // Si la relecture ne rend rien, c'est que la violation d'unicité ne venait pas de la quête
     // du jour : la masquer rendrait « null » au Chasseur et cacherait le vrai défaut.

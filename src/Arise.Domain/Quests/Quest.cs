@@ -90,6 +90,80 @@ public sealed class Quest
                 "Une quête doit viser un Chasseur identifié.", nameof(hunterProfileId));
         }
 
+        var (titreCanonique, descriptionCanonique) =
+            Canoniser(title, description, type, difficulty, xpReward);
+
+        return new Quest
+        {
+            Id = Guid.NewGuid(),
+            HunterProfileId = hunterProfileId,
+            Domain = domain,
+            QuestDate = questDate,
+            Title = titreCanonique,
+            Description = descriptionCanonique,
+            Type = type,
+            StatTarget = statTarget,
+            Difficulty = difficulty,
+            XpReward = xpReward,
+            IsFallback = isFallback,
+            CompletedAt = null,
+        };
+    }
+
+    /// <summary>
+    /// Réécrit une quête de <b>repli</b> avec le texte que le Système a fini par rendre — la
+    /// seule mutation de texte que le modèle admette.
+    ///
+    /// <para>Trois secondes d'indisponibilité à 7h00 condamneraient sinon le Chasseur au texte
+    /// générique jusqu'à minuit, alors même que le Système est rétabli à 7h05. Une quête
+    /// réellement générée, elle, reste intacte : le texte lu le matin est celui qu'on retrouve
+    /// le soir, et c'est précisément ce que cette réécriture préserve en refusant d'y
+    /// toucher.</para>
+    ///
+    /// <para>La quête garde son identifiant : c'est la même ligne qu'on réécrit, pas une
+    /// seconde qui heurterait l'index unique du jour.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// La quête n'est pas une quête de repli.
+    /// </exception>
+    public void RegenerateFallback(
+        string title,
+        string description,
+        QuestType type,
+        QuestStat statTarget,
+        QuestDifficulty difficulty,
+        int xpReward,
+        bool isFallback)
+    {
+        if (!IsFallback)
+        {
+            throw new InvalidOperationException(
+                "Seule une quête de repli peut être réécrite : le texte d'une quête générée est "
+                + "celui que le Chasseur a lu.");
+        }
+
+        var (titreCanonique, descriptionCanonique) =
+            Canoniser(title, description, type, difficulty, xpReward);
+
+        Title = titreCanonique;
+        Description = descriptionCanonique;
+        Type = type;
+        StatTarget = statTarget;
+        Difficulty = difficulty;
+        XpReward = xpReward;
+        IsFallback = isFallback;
+    }
+
+    /// <summary>
+    /// Les contrôles communs aux deux chemins d'écriture, et le texte rogné qu'ils rendent.
+    /// </summary>
+    private static (string Titre, string Description) Canoniser(
+        string title,
+        string description,
+        QuestType type,
+        QuestDifficulty difficulty,
+        int xpReward)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
 
@@ -114,20 +188,6 @@ public sealed class Quest
                 $"La récompense d'une quête {difficulty} doit tenir entre {minimum} et {maximum} XP.");
         }
 
-        return new Quest
-        {
-            Id = Guid.NewGuid(),
-            HunterProfileId = hunterProfileId,
-            Domain = domain,
-            QuestDate = questDate,
-            Title = titreCanonique,
-            Description = descriptionCanonique,
-            Type = type,
-            StatTarget = statTarget,
-            Difficulty = difficulty,
-            XpReward = xpReward,
-            IsFallback = isFallback,
-            CompletedAt = null,
-        };
+        return (titreCanonique, descriptionCanonique);
     }
 }

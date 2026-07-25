@@ -31,7 +31,11 @@ public sealed class GetTodayGymQuestQueryHandler(
         var dejaPosee = await quests.GetForDayAsync(
             request.HunterProfileId, QuestDomain.Sport, aujourdhui, cancellationToken);
 
-        if (dejaPosee is not null)
+        // Un repli non complété, lui, se retente : trois secondes d'indisponibilité du Système
+        // à 7h00 condamneraient sinon le Chasseur au texte générique jusqu'à minuit, alors même
+        // qu'il est rétabli à 7h05. La stabilité du texte n'est promise qu'aux quêtes
+        // réellement générées — celles-là, la commande refuse de les réécrire.
+        if (dejaPosee is not null and not { IsFallback: true, IsCompleted: false })
         {
             return Vers(dejaPosee);
         }
