@@ -21,25 +21,45 @@ namespace Arise.Application.Features.Hunters.EventHandlers;
 public sealed class StreakUpdateHandler(IHunterProfileRepository hunterProfiles)
     : INotificationHandler<DomainEventNotification<QuestCompletedEvent>>
 {
+    /// <inheritdoc cref="Commands.AwardXp.AwardXpCommandHandler"/>
+    private const int TentativesMaximales = 3;
+
     public async Task Handle(
         DomainEventNotification<QuestCompletedEvent> notification,
         CancellationToken cancellationToken)
     {
         var completion = notification.DomainEvent;
 
-        var profil = await hunterProfiles.GetByIdAsync(completion.HunterProfileId, cancellationToken)
-            ?? throw new HunterProfileNotFoundException();
+        for (var tentative = 1; ; tentative++)
+        {
+            // Relu à chaque tentative : la série écrit sur le même profil que l'attribution
+            // d'XP, et le jeton de concurrence refuse l'écriture perdante. Le repository a
+            // alors rafraîchi le profil avec l'état gagnant, et c'est par-dessus celui-là que
+            // la complétion se recompte — sinon la commande échouerait après avoir marqué la
+            // quête accomplie.
+            var profil = await hunterProfiles.GetByIdAsync(
+                    completion.HunterProfileId, cancellationToken)
+                ?? throw new HunterProfileNotFoundException();
 
-        // Les deux types de quête que le produit connaît comptent tous deux pour la série
-        // (doc mécaniques, section 2). Une quête de pénalité n'est pas une punition : elle est
-        // volontairement facile pour redonner un point d'appui, et la décompter irait contre son
-        // propos. Le jour où un type qui ne compte pas apparaîtra — un Boss Raid hebdomadaire —,
-        // c'est ici, et seulement ici, qu'il faudra le filtrer.
-        //
-        // La date vient de l'événement et non d'une horloge : seul le producteur de la
-        // complétion connaît le fuseau du Chasseur, et c'est à ce jour-là que la série se compte.
-        profil.RegisterDailyCompletion(completion.JourDuChasseur);
+            // Les deux types de quête que le produit connaît comptent tous deux pour la série
+            // (doc mécaniques, section 2). Une quête de pénalité n'est pas une punition : elle
+            // est volontairement facile pour redonner un point d'appui, et la décompter irait
+            // contre son propos. Le jour où un type qui ne compte pas apparaîtra — un Boss Raid
+            // hebdomadaire —, c'est ici, et seulement ici, qu'il faudra le filtrer.
+            //
+            // La date vient de l'événement et non d'une horloge : seul le producteur de la
+            // complétion connaît le jour du Chasseur, et c'est à ce jour-là que la série compte.
+            profil.RegisterDailyCompletion(completion.JourDuChasseur);
 
-        await hunterProfiles.SaveAsync(profil, cancellationToken);
+            try
+            {
+                await hunterProfiles.SaveAsync(profil, cancellationToken);
+                return;
+            }
+            catch (ConcurrentHunterProfileUpdateException) when (tentative < TentativesMaximales)
+            {
+                // Rejeu, borné comme celui de l'attribution d'XP.
+            }
+        }
     }
 }

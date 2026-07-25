@@ -93,6 +93,45 @@ public class StreakUpdateHandlerTests
         profil.StreakCurrent.Should().Be(1);
     }
 
+    // La série écrit sur le même profil que l'attribution d'XP, et le jeton de concurrence
+    // refuse l'écriture perdante : deux complétions simultanées feraient sinon échouer la
+    // commande après une quête déjà marquée accomplie. Le repository rafraîchit le profil avec
+    // l'état gagnant ; la série se recompte par-dessus.
+    [Fact]
+    public async Task Recompte_la_completion_quand_une_ecriture_simultanee_a_gagne()
+    {
+        var profil = CreerProfil();
+        var perdue = true;
+        _profils.When(repository => repository.SaveAsync(profil, Arg.Any<CancellationToken>()))
+            .Do(_ =>
+            {
+                if (!perdue)
+                {
+                    return;
+                }
+
+                perdue = false;
+                throw new ConcurrentHunterProfileUpdateException();
+            });
+
+        await Notifier(profil.Id);
+
+        profil.StreakCurrent.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Abandonne_apres_trois_ecritures_perdues()
+    {
+        var profil = CreerProfil();
+        _profils.When(repository => repository.SaveAsync(profil, Arg.Any<CancellationToken>()))
+            .Do(_ => throw new ConcurrentHunterProfileUpdateException());
+
+        var acte = () => Notifier(profil.Id);
+
+        await acte.Should().ThrowAsync<ConcurrentHunterProfileUpdateException>();
+        await _profils.Received(3).SaveAsync(profil, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task Leve_une_exception_quand_le_profil_est_introuvable()
     {

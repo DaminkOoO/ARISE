@@ -27,13 +27,11 @@ public class CompletionDeQueteSurPostgresTests(PostgresFixture postgres)
 
     private const string FuseauNewYork = "America/New_York";
 
-    private async Task<(Guid Chasseur, Guid Quete)> ChasseurAvecQueteDuJour()
-    {
-        var profil = HunterProfile.Create();
-        var quete = Quest.Generate(
-            profil.Id,
+    private static Quest QueteDuJour(Guid chasseur, DateOnly jour) =>
+        Quest.Generate(
+            chasseur,
             QuestDomain.Sport,
-            new DateOnly(2026, 7, 25),
+            jour,
             "L'Épreuve du Guerrier",
             "Bouge à ton rythme : marche, gainage, étirements.",
             QuestType.Quotidienne,
@@ -42,6 +40,11 @@ public class CompletionDeQueteSurPostgresTests(PostgresFixture postgres)
             20,
             isFallback: false);
 
+    private async Task<(Guid Chasseur, Guid Quete)> ChasseurAvecQueteDuJour()
+    {
+        var profil = HunterProfile.Create();
+        var quete = QueteDuJour(profil.Id, new DateOnly(2026, 7, 25));
+
         await using var fournisseur = postgres.Fournisseur();
         await fournisseur.GetRequiredService<IHunterProfileRepository>()
             .SaveAsync(profil, CancellationToken.None);
@@ -49,6 +52,27 @@ public class CompletionDeQueteSurPostgresTests(PostgresFixture postgres)
             .SaveAsync(quete, CancellationToken.None);
 
         return (profil.Id, quete.Id);
+    }
+
+    /// <summary>
+    /// La quête de la veille, restée à accomplir, et celle du jour : deux quêtes distinctes sur
+    /// un même profil, toutes deux dans la fenêtre de complétion.
+    /// </summary>
+    private async Task<(Guid Chasseur, Guid Veille, Guid Jour)> ChasseurAvecDeuxQuetes()
+    {
+        var profil = HunterProfile.Create();
+        var veille = QueteDuJour(profil.Id, new DateOnly(2026, 7, 24));
+        var jour = QueteDuJour(profil.Id, new DateOnly(2026, 7, 25));
+
+        await using var fournisseur = postgres.Fournisseur();
+        await fournisseur.GetRequiredService<IHunterProfileRepository>()
+            .SaveAsync(profil, CancellationToken.None);
+        await fournisseur.GetRequiredService<IQuestRepository>()
+            .SaveAsync(veille, CancellationToken.None);
+        await fournisseur.GetRequiredService<IQuestRepository>()
+            .SaveAsync(jour, CancellationToken.None);
+
+        return (profil.Id, veille.Id, jour.Id);
     }
 
     private async Task Completer(Guid chasseur, Guid quete)
@@ -160,6 +184,32 @@ public class CompletionDeQueteSurPostgresTests(PostgresFixture postgres)
         await Task.WhenAll(Completer(chasseur, quete), Completer(chasseur, quete));
 
         (await ProfilRelu(chasseur)).StreakCurrent.Should().Be(1);
+    }
+
+    // Deux quêtes distinctes complétées ensemble : chaque scope charge le profil au même total,
+    // ajoute ses 20 XP et écrit le sien. Sans jeton de concurrence, le second effaçait le
+    // premier et 40 XP gagnés n'en faisaient que 20 — le témoin séquentiel, lui, donnait bien
+    // 40. Dès la Phase 2, ce sera Sport et Habitudes au même instant.
+    [Fact]
+    public async Task Cumule_l_XP_de_deux_quetes_completees_ensemble()
+    {
+        var (chasseur, veille, jour) = await ChasseurAvecDeuxQuetes();
+
+        await Task.WhenAll(Completer(chasseur, veille), Completer(chasseur, jour));
+
+        (await ProfilRelu(chasseur)).CurrentXp.Should().Be(40);
+    }
+
+    // Deux jours consécutifs comptés, quel que soit l'ordre dans lequel la course s'est jouée :
+    // c'est la garde du domaine — la série ne recule pas — qui le tient.
+    [Fact]
+    public async Task Compte_les_deux_jours_de_deux_quetes_completees_ensemble()
+    {
+        var (chasseur, veille, jour) = await ChasseurAvecDeuxQuetes();
+
+        await Task.WhenAll(Completer(chasseur, veille), Completer(chasseur, jour));
+
+        (await ProfilRelu(chasseur)).LastCompletionDate.Should().Be(new DateOnly(2026, 7, 25));
     }
 
     private sealed class HorlogeFigee(DateTimeOffset instant) : TimeProvider

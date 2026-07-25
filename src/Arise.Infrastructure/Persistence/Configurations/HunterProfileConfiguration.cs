@@ -10,6 +10,19 @@ internal sealed class HunterProfileConfiguration : IEntityTypeConfiguration<Hunt
     {
         builder.HasKey(profile => profile.Id);
 
+        // Jeton de concurrence optimiste sur la colonne système xmin de PostgreSQL, comme pour
+        // les quêtes : chaque UPDATE se voit ajouter un « WHERE xmin = <celui lu> ».
+        //
+        // Sans lui, deux gains d'XP simultanés — la quête de la veille et celle du jour,
+        // demain le Sport et les Habitudes — lisent le même total, ajoutent chacun leur montant
+        // et écrivent le leur : le second efface le premier, et 40 XP gagnés n'en font que 20.
+        // Le chemin d'écriture rejoue son attribution par-dessus l'état gagnant.
+        //
+        // Propriété fantôme : le Domain n'a pas à porter un numéro de version qui ne veut rien
+        // dire pour lui. Un uint marqué IsRowVersion est reconnu par la convention Npgsql, qui
+        // le mappe sur xmin — colonne système, donc rien à créer et migration vide.
+        builder.Property<uint>("xmin").IsRowVersion();
+
         builder.Property(profile => profile.Level)
             .IsRequired();
 

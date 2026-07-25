@@ -122,6 +122,70 @@ public class AwardXpCommandHandlerTests
         profil.DomainEvents.Should().BeEmpty();
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Deux attributions simultanées. Le repository refuse l'écriture perdante et rafraîchit le
+    // profil avec l'état gagnant ; le handler rejoue alors son attribution par-dessus, au lieu
+    // de la perdre. Sans ce rejeu, le Chasseur qui gagne 20 XP par deux chemins au même instant
+    // n'en verrait que 20 — ou, pire depuis que la base refuse, une erreur après une quête déjà
+    // marquée accomplie.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Fait échouer les <paramref name="echecs"/> premières écritures comme le fait le jeton de
+    /// concurrence. Le profil garde l'XP que la tentative perdue lui a appliqué : c'est aussi
+    /// exactement ce que le rafraîchissement du repository y remettrait, puisque le gagnant a
+    /// écrit le même montant.
+    /// </summary>
+    private void EcrituresPerduesAvantDePasser(HunterProfile profil, int echecs)
+    {
+        var restants = echecs;
+
+        _profils.When(repository => repository.SaveAsync(profil, Arg.Any<CancellationToken>()))
+            .Do(_ =>
+            {
+                if (restants-- > 0)
+                {
+                    throw new ConcurrentHunterProfileUpdateException();
+                }
+            });
+    }
+
+    [Fact]
+    public async Task Rejoue_l_attribution_quand_une_attribution_simultanee_a_gagne()
+    {
+        var profil = CreerProfil();
+        EcrituresPerduesAvantDePasser(profil, echecs: 1);
+
+        await Attribuer(profil.Id, montant: 20);
+
+        profil.CurrentXp.Should().Be(40);
+    }
+
+    [Fact]
+    public async Task Rend_l_etat_du_profil_rejoue()
+    {
+        var profil = CreerProfil();
+        EcrituresPerduesAvantDePasser(profil, echecs: 1);
+
+        var resultat = await Attribuer(profil.Id, montant: 20);
+
+        resultat.CurrentXp.Should().Be(40);
+    }
+
+    // Le rejeu est borné : une base durablement contendue ne doit pas faire tourner un handler
+    // indéfiniment. Passé les tentatives prévues, l'échec remonte.
+    [Fact]
+    public async Task Abandonne_apres_trois_tentatives_perdues()
+    {
+        var profil = CreerProfil();
+        EcrituresPerduesAvantDePasser(profil, echecs: int.MaxValue);
+
+        var acte = () => Attribuer(profil.Id, montant: 20);
+
+        await acte.Should().ThrowAsync<ConcurrentHunterProfileUpdateException>();
+        await _profils.Received(3).SaveAsync(profil, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task Leve_une_exception_quand_le_profil_est_introuvable()
     {

@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Hunters;
 using Arise.Infrastructure.Persistence;
 using FluentAssertions;
@@ -95,6 +96,69 @@ public class EfHunterProfileRepositoryTests(PostgresFixture postgres)
         relu!.StreakCurrent.Should().Be(1);
         relu.StreakLongest.Should().Be(1);
         relu.LastCompletionDate.Should().Be(new DateOnly(2026, 7, 24));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Deux attributions simultanées. Deux scopes chargent le profil à 0 XP, chacun ajoute 20 et
+    // écrit 20 : sans jeton de concurrence, la ligne relue en porte 20 au lieu de 40 — l'un des
+    // deux gains a disparu sans un mot. Aujourd'hui c'est la quête de la veille et celle du
+    // jour ; dès la Phase 2, ce sera Sport et Habitudes sur le même profil au même instant.
+    //
+    // Les deux lectures précèdent la première écriture : la course est reproduite à coup sûr.
+    // ---------------------------------------------------------------------------------------
+
+    private async Task<Guid> ProfilPose()
+    {
+        var profil = HunterProfile.Create();
+
+        await using var ecriture = postgres.Fournisseur();
+        await ecriture.GetRequiredService<IHunterProfileRepository>()
+            .SaveAsync(profil, CancellationToken.None);
+
+        return profil.Id;
+    }
+
+    [Fact]
+    public async Task Refuse_la_seconde_ecriture_de_deux_attributions_simultanees()
+    {
+        var chasseur = await ProfilPose();
+
+        await using var premier = postgres.Fournisseur();
+        await using var second = postgres.Fournisseur();
+        var repositoryPremier = premier.GetRequiredService<IHunterProfileRepository>();
+        var repositorySecond = second.GetRequiredService<IHunterProfileRepository>();
+        var vuePremier = await repositoryPremier.GetByIdAsync(chasseur, CancellationToken.None);
+        var vueSecond = await repositorySecond.GetByIdAsync(chasseur, CancellationToken.None);
+        vuePremier!.AwardXp(20);
+        vueSecond!.AwardXp(20);
+        await repositoryPremier.SaveAsync(vuePremier, CancellationToken.None);
+
+        var acte = () => repositorySecond.SaveAsync(vueSecond, CancellationToken.None);
+
+        await acte.Should().ThrowAsync<ConcurrentHunterProfileUpdateException>();
+    }
+
+    // Le perdant repart avec l'état gagnant en main : c'est ce qui permet au handler de rejouer
+    // son attribution par-dessus les 20 XP déjà écrits, plutôt que de les écraser.
+    [Fact]
+    public async Task Rafraichit_le_profil_perdant_avec_l_etat_gagnant()
+    {
+        var chasseur = await ProfilPose();
+
+        await using var premier = postgres.Fournisseur();
+        await using var second = postgres.Fournisseur();
+        var repositoryPremier = premier.GetRequiredService<IHunterProfileRepository>();
+        var repositorySecond = second.GetRequiredService<IHunterProfileRepository>();
+        var vuePremier = await repositoryPremier.GetByIdAsync(chasseur, CancellationToken.None);
+        var vueSecond = await repositorySecond.GetByIdAsync(chasseur, CancellationToken.None);
+        vuePremier!.AwardXp(20);
+        vueSecond!.AwardXp(20);
+        await repositoryPremier.SaveAsync(vuePremier, CancellationToken.None);
+
+        var acte = () => repositorySecond.SaveAsync(vueSecond, CancellationToken.None);
+
+        await acte.Should().ThrowAsync<ConcurrentHunterProfileUpdateException>();
+        vueSecond.CurrentXp.Should().Be(20);
     }
 
     [Fact]

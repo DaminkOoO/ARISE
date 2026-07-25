@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Hunters;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,22 @@ internal sealed class EfHunterProfileRepository(AriseDbContext context) : IHunte
             await context.HunterProfiles.AddAsync(hunterProfile, cancellationToken);
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        // Le jeton de concurrence a refusé l'écriture : un autre gain d'XP a touché la ligne
+        // entre notre lecture et notre sauvegarde. On rafraîchit le profil avec l'état gagnant
+        // — et on jette les faits accumulés sur la tentative perdue, qui n'a pas eu lieu — pour
+        // que le chemin d'écriture puisse rejouer son attribution par-dessus, plutôt que de
+        // l'écraser. Traduit en vocabulaire métier : la couche Application n'a pas à connaître
+        // DbUpdateConcurrencyException.
+        catch (DbUpdateConcurrencyException)
+        {
+            await context.Entry(hunterProfile).ReloadAsync(cancellationToken);
+            hunterProfile.ClearDomainEvents();
+
+            throw new ConcurrentHunterProfileUpdateException();
+        }
     }
 }
