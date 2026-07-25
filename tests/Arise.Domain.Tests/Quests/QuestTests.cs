@@ -196,6 +196,16 @@ public class QuestTests
         quete.XpReward.Should().Be(10);
     }
 
+    // Une quête de pénalité est facile par conception (doc mécaniques, section 1) : la
+    // difficulté qu'un appelant croit bon d'annoncer ne la contredit pas.
+    [Fact]
+    public void Ramene_une_quete_de_penalite_a_la_difficulte_facile()
+    {
+        var quete = Generer(type: QuestType.Penalite, difficulte: QuestDifficulty.Difficile, xp: 10);
+
+        quete.Difficulty.Should().Be(QuestDifficulty.Facile);
+    }
+
     // ---------------------------------------------------------------------------------------
     // Réécriture d'une quête de repli : la seule mutation de texte que le modèle admette.
     // Trois secondes d'indisponibilité du Système à 7h00 ne peuvent pas condamner le Chasseur

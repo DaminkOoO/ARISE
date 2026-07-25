@@ -90,8 +90,9 @@ public sealed class Quest
                 "Une quête doit viser un Chasseur identifié.", nameof(hunterProfileId));
         }
 
+        var difficulteReelle = DifficulteReelle(type, difficulty);
         var (titreCanonique, descriptionCanonique) =
-            Canoniser(title, description, type, difficulty, xpReward);
+            Canoniser(title, description, type, difficulteReelle, xpReward);
 
         return new Quest
         {
@@ -103,7 +104,7 @@ public sealed class Quest
             Description = descriptionCanonique,
             Type = type,
             StatTarget = statTarget,
-            Difficulty = difficulty,
+            Difficulty = difficulteReelle,
             XpReward = xpReward,
             IsFallback = isFallback,
             CompletedAt = null,
@@ -142,17 +143,26 @@ public sealed class Quest
                 + "celui que le Chasseur a lu.");
         }
 
+        var difficulteReelle = DifficulteReelle(type, difficulty);
         var (titreCanonique, descriptionCanonique) =
-            Canoniser(title, description, type, difficulty, xpReward);
+            Canoniser(title, description, type, difficulteReelle, xpReward);
 
         Title = titreCanonique;
         Description = descriptionCanonique;
         Type = type;
         StatTarget = statTarget;
-        Difficulty = difficulty;
+        Difficulty = difficulteReelle;
         XpReward = xpReward;
         IsFallback = isFallback;
     }
+
+    /// <summary>
+    /// La difficulté réellement portée par la quête. Une quête de pénalité est
+    /// <b>facile par conception</b> (doc mécaniques, section 1) : la difficulté qu'un appelant
+    /// croit bon d'annoncer — le modèle le premier — ne la contredit pas.
+    /// </summary>
+    private static QuestDifficulty DifficulteReelle(QuestType type, QuestDifficulty difficulte) =>
+        type == QuestType.Penalite ? QuestDifficulty.Facile : difficulte;
 
     /// <summary>
     /// Les contrôles communs aux deux chemins d'écriture, et le texte rogné qu'ils rendent.
