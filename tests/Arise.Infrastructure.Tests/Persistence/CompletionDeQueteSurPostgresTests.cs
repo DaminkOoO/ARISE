@@ -139,6 +139,29 @@ public class CompletionDeQueteSurPostgresTests(PostgresFixture postgres)
         (await ProfilRelu(chasseur)).StreakCurrent.Should().Be(1);
     }
 
+    // Le double-tap *simultané*, joué en vrai : deux commandes parties ensemble, chacune dans
+    // son scope — c'est ainsi que deux requêtes HTTP arrivent. Aucune des deux ne voit l'autre
+    // en mémoire ; seul le jeton de concurrence en base empêche les deux de créditer.
+    [Fact]
+    public async Task N_accorde_l_XP_qu_une_fois_quand_deux_completions_partent_ensemble()
+    {
+        var (chasseur, quete) = await ChasseurAvecQueteDuJour();
+
+        await Task.WhenAll(Completer(chasseur, quete), Completer(chasseur, quete));
+
+        (await ProfilRelu(chasseur)).CurrentXp.Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Ne_compte_la_serie_qu_une_fois_quand_deux_completions_partent_ensemble()
+    {
+        var (chasseur, quete) = await ChasseurAvecQueteDuJour();
+
+        await Task.WhenAll(Completer(chasseur, quete), Completer(chasseur, quete));
+
+        (await ProfilRelu(chasseur)).StreakCurrent.Should().Be(1);
+    }
+
     private sealed class HorlogeFigee(DateTimeOffset instant) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => instant;

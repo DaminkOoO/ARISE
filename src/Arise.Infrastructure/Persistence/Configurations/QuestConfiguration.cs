@@ -17,6 +17,21 @@ internal sealed class QuestConfiguration : IEntityTypeConfiguration<Quest>
     {
         builder.HasKey(quest => quest.Id);
 
+        // Jeton de concurrence optimiste sur la colonne système xmin de PostgreSQL : chaque
+        // UPDATE se voit ajouter un « WHERE xmin = <celui lu> », et le perdant d'une écriture
+        // simultanée repart bredouille au lieu d'écraser le gagnant.
+        //
+        // C'est ce qui manquait au double-tap *simultané* : la garde d'idempotence de l'entité
+        // vit en mémoire, et deux requêtes concurrentes ont chacune leur scope, donc leur
+        // DbContext — elles lisent toutes deux une quête non complétée et créditent toutes deux
+        // l'XP. Aucune relecture préalable ne peut trancher cette course ; la base, si.
+        //
+        // Propriété fantôme : le Domain n'a pas à porter un numéro de version qui ne veut rien
+        // dire pour lui. Un uint marqué IsRowVersion est reconnu par la convention Npgsql, qui
+        // le mappe sur la colonne système xmin — pas de colonne à créer, donc, et la migration
+        // qui accompagne ce changement est vide.
+        builder.Property<uint>("xmin").IsRowVersion();
+
         // Une quête vise un Chasseur qui existe : sans cette clé étrangère, une quête
         // orpheline survivrait à la suppression de son profil et s'afficherait à personne.
         // Pas de navigation côté HunterProfile — le profil n'a pas à charger ses quêtes pour

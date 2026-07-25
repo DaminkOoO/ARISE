@@ -328,4 +328,90 @@ public class EfQuestRepositoryTests(PostgresFixture postgres)
 
         relue!.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 27, 3, 30, 0, TimeSpan.Zero));
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Deux complétions simultanées. La garde d'idempotence de l'entité est en mémoire, et deux
+    // requêtes concurrentes ont chacune leur scope, donc leur DbContext : les deux lisent une
+    // quête non complétée, les deux voient Complete() rendre true, les deux créditent l'XP.
+    // Seule la base peut trancher — d'où le jeton de concurrence.
+    //
+    // Les deux lectures sont faites avant la première écriture : la course est ici reproduite
+    // à coup sûr, là où deux tâches lancées en parallèle ne l'attraperaient qu'une fois sur
+    // trois.
+    // ---------------------------------------------------------------------------------------
+
+    private static readonly DateTimeOffset InstantDeCompletion =
+        new(2026, 7, 26, 23, 30, 0, TimeSpan.FromHours(-4));
+
+    [Fact]
+    public async Task Refuse_la_seconde_ecriture_de_deux_completions_simultanees()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        await using var premier = postgres.Fournisseur();
+        await using var second = postgres.Fournisseur();
+        var repositoryPremier = premier.GetRequiredService<IQuestRepository>();
+        var repositorySecond = second.GetRequiredService<IQuestRepository>();
+        var vuePremier = await repositoryPremier.GetByIdAsync(quete.Id, CancellationToken.None);
+        var vueSecond = await repositorySecond.GetByIdAsync(quete.Id, CancellationToken.None);
+        vuePremier!.Complete(InstantDeCompletion);
+        vueSecond!.Complete(InstantDeCompletion.AddMinutes(1));
+        await repositoryPremier.SaveAsync(vuePremier, CancellationToken.None);
+
+        var acte = () => repositorySecond.SaveAsync(vueSecond, CancellationToken.None);
+
+        await acte.Should().ThrowAsync<ConcurrentQuestUpdateException>();
+    }
+
+    // La complétion gagnante est la première : celle du perdant ne doit pas écraser son instant.
+    [Fact]
+    public async Task Conserve_l_instant_de_la_completion_gagnante()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        await using var premier = postgres.Fournisseur();
+        await using var second = postgres.Fournisseur();
+        var repositoryPremier = premier.GetRequiredService<IQuestRepository>();
+        var repositorySecond = second.GetRequiredService<IQuestRepository>();
+        var vuePremier = await repositoryPremier.GetByIdAsync(quete.Id, CancellationToken.None);
+        var vueSecond = await repositorySecond.GetByIdAsync(quete.Id, CancellationToken.None);
+        vuePremier!.Complete(InstantDeCompletion);
+        vueSecond!.Complete(InstantDeCompletion.AddMinutes(1));
+        await repositoryPremier.SaveAsync(vuePremier, CancellationToken.None);
+
+        var acte = () => repositorySecond.SaveAsync(vueSecond, CancellationToken.None);
+
+        await acte.Should().ThrowAsync<ConcurrentQuestUpdateException>();
+        (await RelireParIdentifiant(quete.Id))!.CompletedAt
+            .Should().Be(InstantDeCompletion.ToUniversalTime());
+    }
+
+    // Le perdant repart avec l'état gagnant en main : c'est ce qui permet au handler d'annoncer
+    // « déjà accomplie » avec le bon instant, plutôt qu'avec celui de sa propre tentative.
+    [Fact]
+    public async Task Rafraichit_la_quete_perdante_avec_l_etat_gagnant()
+    {
+        var chasseur = await ChasseurPose();
+        var quete = Quete(chasseur);
+        await Poser(quete);
+
+        await using var premier = postgres.Fournisseur();
+        await using var second = postgres.Fournisseur();
+        var repositoryPremier = premier.GetRequiredService<IQuestRepository>();
+        var repositorySecond = second.GetRequiredService<IQuestRepository>();
+        var vuePremier = await repositoryPremier.GetByIdAsync(quete.Id, CancellationToken.None);
+        var vueSecond = await repositorySecond.GetByIdAsync(quete.Id, CancellationToken.None);
+        vuePremier!.Complete(InstantDeCompletion);
+        vueSecond!.Complete(InstantDeCompletion.AddMinutes(1));
+        await repositoryPremier.SaveAsync(vuePremier, CancellationToken.None);
+
+        var acte = () => repositorySecond.SaveAsync(vueSecond, CancellationToken.None);
+
+        await acte.Should().ThrowAsync<ConcurrentQuestUpdateException>();
+        vueSecond.CompletedAt.Should().Be(InstantDeCompletion.ToUniversalTime());
+    }
 }

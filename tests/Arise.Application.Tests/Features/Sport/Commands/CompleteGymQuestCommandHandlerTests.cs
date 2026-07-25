@@ -362,6 +362,54 @@ public class CompleteGymQuestCommandHandlerTests
     }
 
     // ---------------------------------------------------------------------------------------
+    // Double-tap *simultané* : deux requêtes, deux scopes, donc deux DbContext. Les deux lisent
+    // une quête non complétée et la garde d'idempotence de l'entité, qui vit en mémoire, ne voit
+    // rien — c'est la base qui tranche, et le perdant l'apprend au moment d'écrire. Il doit
+    // alors se comporter exactement comme un double-tap séquentiel : accomplissement confirmé,
+    // aucun second crédit.
+    // ---------------------------------------------------------------------------------------
+
+    private void CompletionSimultaneeGagnePar_un_autre(Quest quete) =>
+        _quetes.SaveAsync(quete, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new ConcurrentQuestUpdateException()));
+
+    [Fact]
+    public async Task N_accorde_pas_l_XP_quand_une_completion_simultanee_a_gagne()
+    {
+        var quete = QuetePosee();
+        CompletionSimultaneeGagnePar_un_autre(quete);
+
+        await Completer(quete.Id);
+
+        await _envoi.DidNotReceive().Send(Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Ne_publie_pas_la_completion_quand_une_completion_simultanee_a_gagne()
+    {
+        var quete = QuetePosee();
+        CompletionSimultaneeGagnePar_un_autre(quete);
+
+        await Completer(quete.Id);
+
+        await _publication.DidNotReceive().Publish(
+            Arg.Any<INotification>(), Arg.Any<CancellationToken>());
+    }
+
+    // Le Chasseur a bien accompli sa séance : la course perdue est une affaire d'infrastructure,
+    // pas un refus qu'il ait à lire.
+    [Fact]
+    public async Task Annonce_deja_accomplie_quand_une_completion_simultanee_a_gagne()
+    {
+        var quete = QuetePosee();
+        CompletionSimultaneeGagnePar_un_autre(quete);
+
+        var resultat = await Completer(quete.Id);
+
+        resultat.DejaCompletee.Should().BeTrue();
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Fenêtre de complétion (doc mécaniques, section 2). Sans borne, le Chasseur revenu après
     // dix jours d'absence compléterait les dix quêtes laissées derrière lui — 10 × 20 XP en une
     // minute — et la progression cesserait de mesurer quoi que ce soit.

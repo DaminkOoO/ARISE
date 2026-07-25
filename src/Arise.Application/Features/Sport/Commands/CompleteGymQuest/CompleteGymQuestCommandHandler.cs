@@ -81,10 +81,23 @@ public sealed class CompleteGymQuestCommandHandler(
                 quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpGagne: 0);
         }
 
-        // Persister avant d'accorder : si le processus tombait entre les deux, le Chasseur
-        // perdrait un gain — pas la garde qui l'empêche d'être accordé deux fois à la reprise.
-        // Des deux pannes, c'est la seule qui se rattrape.
-        await quests.SaveAsync(quete, cancellationToken);
+        try
+        {
+            // Persister avant d'accorder : si le processus tombait entre les deux, le Chasseur
+            // perdrait un gain — pas la garde qui l'empêche d'être accordé deux fois à la
+            // reprise. Des deux pannes, c'est la seule qui se rattrape.
+            await quests.SaveAsync(quete, cancellationToken);
+        }
+        // Une complétion simultanée a gagné la course : deux requêtes, deux scopes, deux
+        // DbContext, et la garde d'idempotence de l'entité — qui vit en mémoire — n'a rien pu
+        // voir. C'est la base qui tranche, et le perdant se comporte alors exactement comme un
+        // double-tap séquentiel : l'accomplissement tient, l'XP ne se rejoue pas. Le repository
+        // a rafraîchi la quête avec l'état gagnant, dont on annonce l'instant.
+        catch (ConcurrentQuestUpdateException)
+        {
+            return new CompleteGymQuestResult(
+                quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpGagne: 0);
+        }
 
         await sender.Send(
             new AwardXpCommand(quete.HunterProfileId, quete.XpReward), cancellationToken);

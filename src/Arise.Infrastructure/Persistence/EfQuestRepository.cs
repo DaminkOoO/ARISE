@@ -47,6 +47,19 @@ internal sealed class EfQuestRepository(AriseDbContext context) : IQuestReposito
         {
             await context.SaveChangesAsync(cancellationToken);
         }
+        // Le jeton de concurrence vient de refuser l'écriture : quelqu'un d'autre a touché la
+        // ligne entre notre lecture et notre sauvegarde — deux complétions simultanées, le cas
+        // le plus probable. On rafraîchit l'entité avec l'état gagnant avant de rendre la main,
+        // pour que le handler puisse annoncer la complétion réelle plutôt que sa propre
+        // tentative perdue, et on traduit en vocabulaire métier : la couche Application n'a pas
+        // à connaître DbUpdateConcurrencyException.
+        catch (DbUpdateConcurrencyException)
+        {
+            await context.Entry(quest).ReloadAsync(cancellationToken);
+            quest.ClearDomainEvents();
+
+            throw new ConcurrentQuestUpdateException();
+        }
         // Même traduction que dans EfUserRepository : la course entre deux générations du même
         // jour ne se tranche pas par une lecture préalable, mais ici, par une violation 23505.
         // Rendue dans le vocabulaire métier, elle est rattrapable par le handler d'écriture sans
