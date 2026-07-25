@@ -220,6 +220,28 @@ public class GeminiQuestGenerationAgentTests
         resultat.EstRepli.Should().BeFalse();
     }
 
+    // Les trois tests ci-dessus n'exercent que des charges saines : déplacer un jour le retrait
+    // des barrières en aval des contrôles les laisserait tous verts, et une prescription
+    // chiffrée passerait pour trois caractères de décoration. Encadrée, la quête fautive doit
+    // être rejetée exactement comme les autres.
+    [Fact]
+    public async Task Se_replie_sur_une_prescription_chiffree_encadree_de_barrieres_markdown()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(EnveloppeGemini(
+            $"```json\n{ChargeJson(description: "Squats à 60 kilos, trois séries.")}\n```")));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Se_replie_sur_une_recompense_hors_bareme_encadree_de_barrieres_markdown()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(EnveloppeGemini(
+            $"```json\n{ChargeJson(difficulte: "easy", xp: 40)}\n```")));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Se_replie_quand_l_enveloppe_ne_porte_aucun_candidat()
     {
