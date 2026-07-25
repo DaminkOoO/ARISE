@@ -1,3 +1,4 @@
+using Arise.Application.Common.Validation;
 using FluentValidation;
 
 namespace Arise.Application.Features.Sport.Queries.GetTodayGymQuest;
@@ -22,17 +23,6 @@ public sealed class GetTodayGymQuestQueryValidator : AbstractValidator<GetTodayG
             .NotEmpty()
                 .WithMessage("Le profil de Chasseur ciblé est obligatoire.");
 
-        RuleFor(requete => requete.FuseauHoraire)
-            .NotEmpty()
-                .WithMessage("Le fuseau horaire du Chasseur est obligatoire.")
-            .Must(EstUnFuseauConnu)
-                .WithMessage("Ce fuseau horaire est inconnu.");
+        RuleFor(requete => requete.FuseauHoraire).FuseauHoraireDuChasseur();
     }
-
-    /// <summary>
-    /// <c>TryFindSystemTimeZoneById</c> et non <c>FindSystemTimeZoneById</c> : un fuseau
-    /// inconnu est ici une saisie à refuser poliment, pas une exception à lever.
-    /// </summary>
-    private static bool EstUnFuseauConnu(string fuseauHoraire) =>
-        TimeZoneInfo.TryFindSystemTimeZoneById(fuseauHoraire, out _);
 }
