@@ -222,15 +222,40 @@ public class GeminiOnboardingAgentTests
     }
 
     [Fact]
-    public async Task Appelle_le_modele_et_la_clef_configures()
+    public async Task Appelle_le_modele_configure()
     {
         var transport = FauxHttpMessageHandler.Repond(
             EnveloppeGemini("""{"awakening_narrative": "Le Système t'a repéré."}"""));
 
         await Agent(transport).ExecuteAsync(Requete, CancellationToken.None);
 
-        var requete = transport.Requetes.Should().ContainSingle().Which;
-        requete.Uri!.AbsolutePath.Should().Contain("gemini-2.0-flash");
-        requete.Uri.Query.Should().Contain("clef-de-test");
+        transport.Requetes.Should().ContainSingle().Which
+            .Uri!.AbsolutePath.Should().Contain("gemini-2.0-flash");
+    }
+
+    [Fact]
+    public async Task Presente_la_clef_configuree_en_entete()
+    {
+        var transport = FauxHttpMessageHandler.Repond(
+            EnveloppeGemini("""{"awakening_narrative": "Le Système t'a repéré."}"""));
+
+        await Agent(transport).ExecuteAsync(Requete, CancellationToken.None);
+
+        transport.Requetes.Should().ContainSingle().Which
+            .EnTete("x-goog-api-key").Should().Be("clef-de-test");
+    }
+
+    // AddHttpClient trace l'URI complète en niveau Information : une clé en query string
+    // atterrirait telle quelle dans les journaux applicatifs de production.
+    [Fact]
+    public async Task Ne_fait_pas_voyager_la_clef_dans_l_URI()
+    {
+        var transport = FauxHttpMessageHandler.Repond(
+            EnveloppeGemini("""{"awakening_narrative": "Le Système t'a repéré."}"""));
+
+        await Agent(transport).ExecuteAsync(Requete, CancellationToken.None);
+
+        transport.Requetes.Should().ContainSingle().Which
+            .Uri!.ToString().Should().NotContain("clef-de-test");
     }
 }

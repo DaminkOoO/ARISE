@@ -54,13 +54,32 @@ internal sealed class GeminiOnboardingAgent(
         OnboardingAgentRequest request, CancellationToken cancellationToken)
     {
         var config = options.Value;
-        var adresse = $"v1beta/models/{config.Model}:generateContent?key={config.ApiKey}";
 
-        HttpResponseMessage reponseHttp;
+        // La clé voyage en en-tête, jamais en query string : AddHttpClient enregistre par
+        // défaut un LoggingHttpMessageHandler qui trace l'URI complète en niveau Information,
+        // et un « ?key=... » finirait donc en clair dans les journaux de production.
+        using var requeteHttp = new HttpRequestMessage(
+            HttpMethod.Post, $"v1beta/models/{config.Model}:generateContent")
+        {
+            Content = ConstruireRequete(request),
+        };
+        requeteHttp.Headers.Add("x-goog-api-key", config.ApiKey);
+
+        string corpsEnveloppe;
         try
         {
-            reponseHttp = await httpClient.PostAsync(
-                adresse, ConstruireRequete(request), cancellationToken);
+            // Disposée : sans cela la connexion sous-jacente reste retenue jusqu'au passage du
+            // GC, et l'agent est appelé sur un chemin de requête utilisateur.
+            using var reponseHttp = await httpClient.SendAsync(requeteHttp, cancellationToken);
+
+            if (!reponseHttp.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "Réponse HTTP {StatutCode} du Système (onboarding).", reponseHttp.StatusCode);
+                return Repli;
+            }
+
+            corpsEnveloppe = await reponseHttp.Content.ReadAsStringAsync(cancellationToken);
         }
         catch (HttpRequestException exception)
         {
@@ -77,15 +96,6 @@ internal sealed class GeminiOnboardingAgent(
             logger.LogWarning(exception, "Délai dépassé lors de l'appel au Système (onboarding).");
             return Repli;
         }
-
-        if (!reponseHttp.IsSuccessStatusCode)
-        {
-            logger.LogWarning(
-                "Réponse HTTP {StatutCode} du Système (onboarding).", reponseHttp.StatusCode);
-            return Repli;
-        }
-
-        var corpsEnveloppe = await reponseHttp.Content.ReadAsStringAsync(cancellationToken);
 
         string texteGenere;
         try

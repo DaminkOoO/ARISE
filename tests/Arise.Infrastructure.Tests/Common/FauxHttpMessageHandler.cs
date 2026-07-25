@@ -103,7 +103,14 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
         int rang;
         lock (_verrou)
         {
-            _requetes.Add(new RequeteCapturee(request.Method, request.RequestUri, corps));
+            _requetes.Add(new RequeteCapturee(
+                request.Method,
+                request.RequestUri,
+                corps,
+                request.Headers.ToDictionary(
+                    entete => entete.Key,
+                    entete => string.Join(", ", entete.Value),
+                    StringComparer.OrdinalIgnoreCase)));
             rang = _requetes.Count - 1;
         }
 
@@ -126,4 +133,17 @@ internal sealed class FauxHttpMessageHandler : HttpMessageHandler
     }
 }
 
-internal sealed record RequeteCapturee(HttpMethod Methode, Uri? Uri, string Corps);
+internal sealed record RequeteCapturee(
+    HttpMethod Methode,
+    Uri? Uri,
+    string Corps,
+    IReadOnlyDictionary<string, string> Entetes)
+{
+    /// <summary>
+    /// La valeur de cet en-tête, ou <see langword="null"/> s'il n'a pas été envoyé. C'est ce
+    /// qui permet d'éprouver que la clé d'API part bien en en-tête — et surtout qu'elle ne part
+    /// plus dans l'URI, que le handler de journalisation de <c>AddHttpClient</c> trace en
+    /// clair.
+    /// </summary>
+    public string? EnTete(string nom) => Entetes.GetValueOrDefault(nom);
+}

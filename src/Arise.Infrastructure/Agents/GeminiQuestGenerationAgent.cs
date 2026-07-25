@@ -238,13 +238,31 @@ internal sealed class GeminiQuestGenerationAgent(
         QuestGenerationAgentRequest request, string? reproche, CancellationToken cancellationToken)
     {
         var config = options.Value;
-        var adresse = $"v1beta/models/{config.Model}:generateContent?key={config.ApiKey}";
 
-        HttpResponseMessage reponseHttp;
+        // La clé voyage en en-tête, jamais en query string : AddHttpClient enregistre par
+        // défaut un LoggingHttpMessageHandler qui trace l'URI complète en niveau Information,
+        // et un « ?key=... » finirait donc en clair dans les journaux de production.
+        using var requeteHttp = new HttpRequestMessage(
+            HttpMethod.Post, $"v1beta/models/{config.Model}:generateContent")
+        {
+            Content = ConstruireRequete(request, reproche),
+        };
+        requeteHttp.Headers.Add("x-goog-api-key", config.ApiKey);
+
         try
         {
-            reponseHttp = await httpClient.PostAsync(
-                adresse, ConstruireRequete(request, reproche), cancellationToken);
+            // Disposée : sans cela la connexion sous-jacente reste retenue jusqu'au passage du
+            // GC, et l'agent est appelé sur un chemin de lecture utilisateur.
+            using var reponseHttp = await httpClient.SendAsync(requeteHttp, cancellationToken);
+
+            if (!reponseHttp.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "Réponse HTTP {StatutCode} du Système (quête).", reponseHttp.StatusCode);
+                return Tentative.Panne;
+            }
+
+            return Valider(await reponseHttp.Content.ReadAsStringAsync(cancellationToken));
         }
         catch (HttpRequestException exception)
         {
@@ -261,16 +279,6 @@ internal sealed class GeminiQuestGenerationAgent(
             logger.LogWarning(exception, "Délai dépassé lors de l'appel au Système (quête).");
             return Tentative.Panne;
         }
-
-        if (!reponseHttp.IsSuccessStatusCode)
-        {
-            logger.LogWarning("Réponse HTTP {StatutCode} du Système (quête).", reponseHttp.StatusCode);
-            return Tentative.Panne;
-        }
-
-        var corpsEnveloppe = await reponseHttp.Content.ReadAsStringAsync(cancellationToken);
-
-        return Valider(corpsEnveloppe);
     }
 
     /// <summary>

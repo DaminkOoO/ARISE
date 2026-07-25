@@ -89,6 +89,30 @@ public class FauxHttpMessageHandlerTests
         transport.Requetes.Should().ContainSingle().Which.Corps.Should().Be(prompt);
     }
 
+    // La clé d'API voyage en en-tête et non plus en query string : sans capture des en-têtes,
+    // aucun test ne pourrait vérifier qu'elle part bien, ni qu'elle ne part plus dans l'URI.
+    [Fact]
+    public async Task Capture_les_entetes_envoyes()
+    {
+        var transport = FauxHttpMessageHandler.Repond(CorpsJson);
+        using var requete = new HttpRequestMessage(HttpMethod.Post, "/v1/generer");
+        requete.Headers.Add("x-goog-api-key", "clef-de-test");
+
+        await transport.Client().SendAsync(requete);
+
+        transport.Requetes.Should().ContainSingle().Which
+            .EnTete("x-goog-api-key").Should().Be("clef-de-test");
+    }
+
+    [Fact]
+    public void Rend_null_pour_un_entete_absent()
+    {
+        var requete = new RequeteCapturee(
+            HttpMethod.Post, null, string.Empty, new Dictionary<string, string>());
+
+        requete.EnTete("x-goog-api-key").Should().BeNull();
+    }
+
     [Fact]
     public async Task Capture_une_requete_sans_corps_comme_chaine_vide()
     {
