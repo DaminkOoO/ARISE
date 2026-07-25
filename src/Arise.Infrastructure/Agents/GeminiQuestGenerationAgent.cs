@@ -67,6 +67,22 @@ internal sealed class GeminiQuestGenerationAgent(
         TimeSpan.FromSeconds(1));
 
     /// <summary>
+    /// Les unités et les tournures de prescription, jugées <b>indépendamment du chiffre</b>.
+    /// Exiger un <c>\d+</c> collé à l'unité se contournait sans effort : « à cent kilos » écrit
+    /// en toutes lettres, « g de protéines » (un dosage nutritionnel, nommé par la règle n°5),
+    /// « 4:30 au kilomètre » où le séparateur porte l'allure.
+    ///
+    /// <para>« jeûne » et « jeune » se confondent une fois les accents retirés : un « reste
+    /// jeune » innocent serait rejeté. C'est le bon sens du compromis — un faux positif ne coûte
+    /// qu'un repli sûr, là où un faux négatif atteint l'écran du Chasseur.</para>
+    /// </summary>
+    private static readonly Regex UniteDePrescription = new(
+        @"\b(?:kg|kilos?|kilogrammes?|kcal|calories?|watts?|bpm|pulsations?|jeune|jeuner"
+        + @"|allures?)\b|\bg\s+de\s+proteines?\b|\bau\s+kilometre\b|\d\s*:\s*\d|%",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
     /// Au-delà de ce nombre, un chiffre cesse d'être un défi de jeu : « 40 pompes » se juge à
     /// vue d'œil, « 500 pompes » est une prescription déguisée. Le contexte transmis au modèle
     /// ne porte ni condition physique ni historique de complétion — le plafond ne peut donc pas
@@ -382,9 +398,10 @@ internal sealed class GeminiQuestGenerationAgent(
 
         var normalise = SansAccents(texte);
 
-        if (PrescriptionChiffree.IsMatch(normalise))
+        if (PrescriptionChiffree.IsMatch(normalise) || UniteDePrescription.IsMatch(normalise))
         {
-            return "une quête ne prescrit ni charge, ni allure, ni calories, ni pourcentage d'effort";
+            return "une quête ne prescrit ni charge, ni allure, ni calories, ni dosage, ni "
+                + "pourcentage d'effort";
         }
 
         if (MagnitudeHorsBornes(normalise) is { } motifMagnitude)

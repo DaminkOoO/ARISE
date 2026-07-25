@@ -314,6 +314,23 @@ public class GeminiQuestGenerationAgentTests
         resultat.EstRepli.Should().BeTrue();
     }
 
+    // La même règle, contournée sans effort tant que l'unité n'était cherchée que collée à un
+    // chiffre : un nombre en toutes lettres, une unité hors liste ou un séparateur d'allure
+    // suffisaient. L'unité se juge donc indépendamment du chiffre.
+    [Theory]
+    [InlineData("Charge la barre à cent kilos.")]
+    [InlineData("Mange 90 g de protéines après ta séance.")]
+    [InlineData("Pratique le jeûne avant de bouger.")]
+    [InlineData("Cours à 4:30 au kilomètre.")]
+    [InlineData("Maintiens 100 bpm pendant ta marche.")]
+    [InlineData("Garde une allure soutenue tout du long.")]
+    public async Task Se_replie_sur_une_unite_de_prescription_meme_sans_chiffre(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
     // Règle n°5 — aucun diagnostic de blessure, aucune interprétation de symptôme.
     [Theory]
     [InlineData("Ta gêne au genou est une tendinite : étire-la.")]
