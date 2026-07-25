@@ -2,7 +2,7 @@ using Arise.Application.Common.Abstractions;
 using Arise.Application.Common.Events;
 using Arise.Application.Common.Exceptions;
 using Arise.Application.Features.Hunters.Commands.AwardXp;
-using Arise.Application.Features.Hunters.EventHandlers;
+using Arise.Domain.Quests;
 using MediatR;
 
 namespace Arise.Application.Features.Sport.Commands.CompleteGymQuest;
@@ -19,8 +19,9 @@ namespace Arise.Application.Features.Sport.Commands.CompleteGymQuest;
 /// soir.</para>
 ///
 /// <para>La série, elle, ne se met pas à jour ici : elle est l'affaire de
-/// <see cref="StreakUpdateHandler"/>, abonné à l'événement de complétion. Budget, Habitudes et
-/// Calendrier publieront le même fait sans recopier cette logique.</para>
+/// <c>StreakUpdateHandler</c>, abonné à l'événement de complétion. Budget, Habitudes et
+/// Calendrier publieront le même fait sans recopier cette logique — et ce handler-ci n'a pas à
+/// connaître ses abonnés, c'est précisément ce que l'événement sert à éviter.</para>
 /// </summary>
 public sealed class CompleteGymQuestCommandHandler(
     IQuestRepository quests,
@@ -39,6 +40,15 @@ public sealed class CompleteGymQuestCommandHandler(
         // n'importe quel Chasseur complèterait les quêtes des autres et s'accorderait leur XP.
         // Même exception que pour une quête inconnue, pour ne pas révéler celle d'autrui.
         if (quete.HunterProfileId != request.HunterProfileId)
+        {
+            throw new QuestNotFoundException();
+        }
+
+        // Une commande de sport ne complète que des quêtes de sport. Dès la Phase 2,
+        // l'identifiant d'une quête d'Habitudes passerait le contrôle ci-dessus, serait marqué
+        // complété et crédité — en court-circuitant ce que la complétion d'une habitude devra
+        // faire de son côté (HabitLog, série d'habitude).
+        if (quete.Domain != QuestDomain.Sport)
         {
             throw new QuestNotFoundException();
         }

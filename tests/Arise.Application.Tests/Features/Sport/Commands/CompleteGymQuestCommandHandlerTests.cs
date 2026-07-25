@@ -30,11 +30,11 @@ public class CompleteGymQuestCommandHandlerTests
 
     private readonly Guid _chasseur = Guid.NewGuid();
 
-    private Quest QuetePosee(int xp = 20)
+    private Quest QuetePosee(int xp = 20, QuestDomain domaine = QuestDomain.Sport)
     {
         var quete = Quest.Generate(
             _chasseur,
-            QuestDomain.Sport,
+            domaine,
             new DateOnly(2026, 7, 25),
             "L'Épreuve du Guerrier",
             "Bouge à ton rythme : marche, gainage, étirements.",
@@ -316,6 +316,31 @@ public class CompleteGymQuestCommandHandlerTests
 
         await acte.Should().ThrowAsync<QuestNotFoundException>();
         await _envoi.DidNotReceive().Send(Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    // Dès la Phase 2, l'identifiant d'une quête d'Habitudes passerait le contrôle de
+    // rattachement, serait marqué complété et crédité — en court-circuitant ce que la
+    // complétion d'une habitude doit faire de son côté (HabitLog, série d'habitude). Une
+    // commande de sport ne complète que des quêtes de sport.
+    [Fact]
+    public async Task Refuse_de_completer_une_quete_d_un_autre_domaine()
+    {
+        var quete = QuetePosee(domaine: QuestDomain.Habitudes);
+
+        var acte = () => Completer(quete.Id);
+
+        await acte.Should().ThrowAsync<QuestNotFoundException>();
+    }
+
+    [Fact]
+    public async Task Ne_marque_pas_completee_la_quete_d_un_autre_domaine()
+    {
+        var quete = QuetePosee(domaine: QuestDomain.Habitudes);
+
+        var acte = () => Completer(quete.Id);
+
+        await acte.Should().ThrowAsync<QuestNotFoundException>();
+        quete.IsCompleted.Should().BeFalse();
     }
 
     /// <summary>
