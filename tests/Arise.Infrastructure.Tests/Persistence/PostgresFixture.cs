@@ -1,3 +1,4 @@
+using Arise.Application;
 using Arise.Infrastructure;
 using Arise.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,22 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public ServiceProvider Fournisseur() =>
         new ServiceCollection()
+            .AddInfrastructure(conteneur.GetConnectionString())
+            .BuildServiceProvider();
+
+    /// <summary>
+    /// Les deux couches câblées ensemble, MediatR compris : de quoi éprouver une commande
+    /// complète — pipeline, handlers en cascade, abonnés aux événements — par-dessus le vrai
+    /// Postgres, là où <see cref="Fournisseur"/> ne monte que la persistance.
+    ///
+    /// <para>L'horloge est posée avant <c>AddApplication</c>, qui l'enregistre en
+    /// <c>TryAddSingleton</c> : celle du test l'emporte, et un scénario daté n'a pas à attendre
+    /// minuit.</para>
+    /// </summary>
+    public ServiceProvider FournisseurApplicatif(TimeProvider horloge) =>
+        new ServiceCollection()
+            .AddSingleton(horloge)
+            .AddApplication()
             .AddInfrastructure(conteneur.GetConnectionString())
             .BuildServiceProvider();
 }
