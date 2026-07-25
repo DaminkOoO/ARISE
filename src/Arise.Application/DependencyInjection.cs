@@ -54,6 +54,17 @@ public static class DependencyInjection
         services.TryAddEnumerable(
             ServiceDescriptor.Transient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>)));
 
+        // Après la validation, et l'ordre est le sujet : MediatR exécute les behaviors dans
+        // l'ordre d'enregistrement, donc une commande refusée par ses validators n'aura jamais
+        // ouvert de transaction.
+        //
+        // TransactionBehavior est contraint aux ICommand<> : le conteneur .NET écarte de
+        // lui-même les fermetures dont la contrainte n'est pas satisfaite, si bien qu'une
+        // requête ne le voit pas passer. C'est ce tri — invisible ici — que
+        // DependencyInjectionTests tient sous surveillance des deux côtés.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Transient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>)));
+
         return services;
     }
 }

@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
+using Arise.Application.Common.Abstractions;
 using Arise.Application.Common.Behaviors;
 using Arise.Application.Common.Diagnostics;
+using Arise.Application.Common.Messaging;
 using FluentAssertions;
 using FluentValidation;
 using MediatR;
@@ -10,10 +12,24 @@ namespace Arise.Application.Tests;
 
 public class DependencyInjectionTests
 {
-    public sealed record RequeteFactice(string Nom) : IRequest<string>;
+    public sealed record RequeteFactice(string Nom) : IQuery<string>;
+
+    public sealed record CommandeFactice(string Nom) : ICommand<string>;
 
     private static ServiceProvider Provider() =>
         new ServiceCollection().AddApplication().BuildServiceProvider();
+
+    /// <summary>
+    /// Ce que l'hôte réel monte : la couche Application par-dessus une unité de travail, que
+    /// seule la couche Infrastructure sait fournir. <c>AddApplication()</c> nu suffit à tout ce
+    /// qui ne touche pas de commande — d'où la doublure ici plutôt qu'une référence à
+    /// Infrastructure, que ce projet de tests n'a pas et n'a pas à avoir.
+    /// </summary>
+    private static ServiceProvider ProviderAvecUniteDeTravail() =>
+        new ServiceCollection()
+            .AddSingleton<IUnitOfWork, UniteDeTravailInerte>()
+            .AddApplication()
+            .BuildServiceProvider();
 
     [Fact]
     public void Expose_un_IMediator_resolvable()
@@ -140,5 +156,79 @@ public class DependencyInjectionTests
     private sealed class ValidatorDeRequete : AbstractValidator<Requete>
     {
         public ValidatorDeRequete() => RuleFor(r => r.NomDuChasseur).NotEmpty();
+    }
+
+    // Une commande écrit : elle traverse le TransactionBehavior, sans quoi une commande ajoutée
+    // en Phase 3 écrirait de nouveau en trois transactions indépendantes.
+    [Fact]
+    public void Branche_le_TransactionBehavior_sur_une_commande()
+    {
+        var behaviors = ProviderAvecUniteDeTravail()
+            .GetServices<IPipelineBehavior<CommandeFactice, string>>();
+
+        behaviors.Should().ContainItemsAssignableTo<TransactionBehavior<CommandeFactice, string>>();
+    }
+
+    // Le pendant, et la raison d'être des marqueurs : une lecture ne doit pas payer un
+    // BEGIN/COMMIT par affichage.
+    //
+    // L'assertion passe par le type ouvert et non par TransactionBehavior<RequeteFactice, string>
+    // — que le compilateur refuse d'écrire, la contrainte n'étant pas satisfaite. C'est en soi
+    // la meilleure nouvelle possible : le mauvais rangement est impossible à exprimer. Reste à
+    // vérifier que le conteneur écarte bien la fermeture impossible au lieu de lever à la
+    // résolution, ce qu'aucun compilateur ne dit.
+    [Fact]
+    public void N_ouvre_pas_de_transaction_sur_une_requete()
+    {
+        var behaviors = ProviderAvecUniteDeTravail()
+            .GetServices<IPipelineBehavior<RequeteFactice, string>>();
+
+        behaviors.Should().NotContain(behavior =>
+            behavior.GetType().IsGenericType
+            && behavior.GetType().GetGenericTypeDefinition() == typeof(TransactionBehavior<,>));
+    }
+
+    // L'ordre compte : une commande refusée par ses validators ne doit jamais avoir ouvert de
+    // transaction. MediatR exécute les behaviors dans l'ordre d'enregistrement — c'est donc
+    // celui-là qu'on épingle.
+    [Fact]
+    public void Valide_la_commande_avant_d_ouvrir_la_transaction()
+    {
+        var behaviors = ProviderAvecUniteDeTravail()
+            .GetServices<IPipelineBehavior<CommandeFactice, string>>()
+            .ToList();
+
+        behaviors.Should().SatisfyRespectively(
+            premier => premier.Should().BeOfType<ValidationBehavior<CommandeFactice, string>>(),
+            second => second.Should().BeOfType<TransactionBehavior<CommandeFactice, string>>());
+    }
+
+    [Fact]
+    public void N_enregistre_le_TransactionBehavior_qu_une_fois_si_appele_deux_fois()
+    {
+        using var provider = new ServiceCollection()
+            .AddSingleton<IUnitOfWork, UniteDeTravailInerte>()
+            .AddApplication()
+            .AddApplication()
+            .BuildServiceProvider();
+
+        provider.GetServices<IPipelineBehavior<CommandeFactice, string>>()
+            .OfType<TransactionBehavior<CommandeFactice, string>>()
+            .Should().ContainSingle();
+    }
+
+    /// <summary>
+    /// Doublure sans effet : ces tests n'observent que le câblage — ce que le behavior fait de
+    /// l'unité de travail est éprouvé à part (<c>TransactionBehaviorTests</c>).
+    /// </summary>
+    private sealed class UniteDeTravailInerte : IUnitOfWork
+    {
+        public bool TransactionEnCours => false;
+
+        public Task CommencerAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ValiderAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task AnnulerAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -39,6 +39,12 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, EfUserRepository>();
         services.AddScoped<IHunterProfileRepository, EfHunterProfileRepository>();
         services.AddScoped<IQuestRepository, EfQuestRepository>();
+
+        // Scoped, et c'est la propriété dont dépend l'atomicité : l'unité de travail partage la
+        // durée de vie du DbContext, donc du scope de la requête. Une commande imbriquée,
+        // envoyée par MediatR dans ce même scope, interroge la même instance et voit la
+        // transaction de sa parente au lieu d'en ouvrir une seconde.
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         // L'émetteur de jetons est sans état : il lit ses paramètres via IOptions<JwtOptions>
