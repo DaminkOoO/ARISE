@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Hunters;
 using Arise.Domain.Quests;
 using FluentAssertions;
@@ -213,6 +214,10 @@ public class EfQuestRepositoryTests(PostgresFixture postgres)
     // La contrainte vit en base, pas seulement dans le handler : un validator se contourne par
     // un second chemin d'écriture (worker de briefing, seed, deux requêtes concurrentes au
     // premier réveil du matin), un index unique non.
+    //
+    // Traduite dans le vocabulaire métier comme EfUserRepository le fait de la violation
+    // d'unicité des noms : une DbUpdateException nue laisserait le handler d'écriture sans
+    // moyen de rattraper la course sans connaître Npgsql, et retomberait sur un 500 en anglais.
     [Fact]
     public async Task Refuse_une_deuxieme_quete_pour_le_meme_Chasseur_le_meme_jour_et_le_meme_domaine()
     {
@@ -221,7 +226,7 @@ public class EfQuestRepositoryTests(PostgresFixture postgres)
 
         var acte = () => Poser(Quete(chasseur, titre: "Seconde quête du même jour"));
 
-        await acte.Should().ThrowAsync<DbUpdateException>();
+        await acte.Should().ThrowAsync<QuestAlreadyPosedException>();
     }
 
     [Fact]

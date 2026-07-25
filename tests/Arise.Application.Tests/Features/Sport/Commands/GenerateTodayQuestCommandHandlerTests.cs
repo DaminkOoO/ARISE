@@ -160,4 +160,46 @@ public class GenerateTodayQuestCommandHandlerTests
 
         quete.IsCompleted.Should().BeFalse();
     }
+
+    // Deux appareils, ou un simple pull-to-refresh pendant l'appel au Système — qui dure des
+    // secondes, la fenêtre est large : l'index unique tranche, et une quête valide existe
+    // désormais en base. Le Chasseur n'a aucune raison de voir une erreur pour autant.
+    [Fact]
+    public async Task Rend_la_quete_gagnante_quand_une_generation_concurrente_a_pris_les_devants()
+    {
+        var concurrente = QueteConcurrente();
+        _quetes.SaveAsync(Arg.Any<Quest>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new QuestAlreadyPosedException());
+        _quetes.GetForDayAsync(_profil.Id, QuestDomain.Sport, Jour, Arg.Any<CancellationToken>())
+            .Returns(concurrente);
+
+        var quete = await Generer();
+
+        quete.Should().BeSameAs(concurrente);
+    }
+
+    // Si la relecture ne rend rien, c'est que la violation d'unicité ne venait pas de la quête
+    // du jour : la masquer rendrait « null » au Chasseur et cacherait le vrai défaut.
+    [Fact]
+    public async Task Laisse_remonter_la_collision_qu_aucune_relecture_n_explique()
+    {
+        _quetes.SaveAsync(Arg.Any<Quest>(), Arg.Any<CancellationToken>())
+            .Returns(_ => throw new QuestAlreadyPosedException());
+
+        var acte = () => Generer();
+
+        await acte.Should().ThrowAsync<QuestAlreadyPosedException>();
+    }
+
+    private Quest QueteConcurrente() => Quest.Generate(
+        _profil.Id,
+        QuestDomain.Sport,
+        Jour,
+        "Quête posée par l'autre appareil",
+        "Marche à ton rythme, Chasseur.",
+        QuestType.Quotidienne,
+        QuestStat.Force,
+        QuestDifficulty.Facile,
+        10,
+        isFallback: false);
 }

@@ -41,7 +41,28 @@ public sealed class GenerateTodayQuestCommandHandler(
             generee.XpReward,
             generee.EstRepli);
 
-        await quests.SaveAsync(quete, cancellationToken);
+        try
+        {
+            await quests.SaveAsync(quete, cancellationToken);
+        }
+        // Deux appareils, ou un pull-to-refresh pendant l'appel au Système — qui dure des
+        // secondes, la fenêtre est large : l'index unique a tranché, et une quête parfaitement
+        // valide existe déjà en base. Le Chasseur n'a aucune raison de voir une erreur pour
+        // autant ; on lui rend la gagnante.
+        catch (QuestAlreadyPosedException)
+        {
+            var gagnante = await quests.GetForDayAsync(
+                profil.Id, QuestDomain.Sport, request.QuestDate, cancellationToken);
+
+            if (gagnante is null)
+            {
+                // La collision ne venait donc pas de la quête du jour : la masquer rendrait un
+                // résultat vide au Chasseur et cacherait le vrai défaut.
+                throw;
+            }
+
+            return gagnante;
+        }
 
         return quete;
     }

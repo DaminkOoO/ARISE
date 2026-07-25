@@ -1,6 +1,8 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Common.Exceptions;
 using Arise.Domain.Quests;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Arise.Infrastructure.Persistence;
 
@@ -36,6 +38,19 @@ internal sealed class EfQuestRepository(AriseDbContext context) : IQuestReposito
             await context.Quests.AddAsync(quest, cancellationToken);
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        // Même traduction que dans EfUserRepository : la course entre deux générations du même
+        // jour ne se tranche pas par une lecture préalable, mais ici, par une violation 23505.
+        // Rendue dans le vocabulaire métier, elle est rattrapable par le handler d'écriture sans
+        // que la couche Application ait à connaître Npgsql — là où une DbUpdateException nue
+        // retomberait sur un 500 en anglais devant le Chasseur.
+        catch (DbUpdateException exception)
+            when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw new QuestAlreadyPosedException();
+        }
     }
 }
