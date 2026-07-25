@@ -417,6 +417,21 @@ public class QuestTests
             .Which.As<QuestCompletedEvent>().JourDuChasseur.Should().Be(new DateOnly(2026, 7, 25));
     }
 
+    // La séance a eu lieu le 25 à 23h50 ; le Chasseur tape « Terminé » à 00h05 le 26. C'est le
+    // jour de la quête que la série compte — celui auquel l'effort appartient, et celui dont il
+    // a lu le texte le matin —, jamais celui du tap : dater le 26 laisserait le 25 vide et
+    // romprait la série d'un Chasseur qui n'a pourtant rien manqué.
+    [Fact]
+    public void Date_l_evenement_du_jour_de_la_quete_et_non_de_celui_du_tap()
+    {
+        var quete = Generer(); // posée pour le 25.
+
+        quete.Complete(new DateTimeOffset(2026, 7, 26, 0, 5, 0, TimeSpan.FromHours(-4)));
+
+        quete.DomainEvents.Should().ContainSingle()
+            .Which.As<QuestCompletedEvent>().JourDuChasseur.Should().Be(Jour);
+    }
+
     // Le risque n°1 de la complétion : deux événements, c'est deux fois l'XP en aval.
     [Fact]
     public void Ne_leve_aucun_evenement_a_la_seconde_completion()

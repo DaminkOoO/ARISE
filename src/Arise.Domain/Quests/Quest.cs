@@ -78,18 +78,20 @@ public sealed class Quest
     /// domaine — Budget, Habitudes — devrait réécrire à l'identique en espérant ne pas
     /// l'oublier.</para>
     /// </summary>
-    /// <param name="instantChezLeChasseur">
-    /// L'instant de la complétion <b>exprimé dans le fuseau du Chasseur</b> : l'appelant convertit
-    /// avant d'appeler, exactement comme pour la génération de la quête du jour. C'est de son
-    /// décalage que se déduit le jour que la série comptera — un instant passé en UTC brut
-    /// daterait la série du jour du serveur.
+    /// <param name="instantDeLaCompletion">
+    /// L'instant du tap, quel qu'en soit le décalage : il n'est stocké que pour l'horodatage,
+    /// et l'entité le range en UTC. Le jour que la série comptera n'en dépend pas — c'est
+    /// <see cref="QuestDate"/>, le jour auquel la quête a été posée. La séance du 25 déclarée à
+    /// 00h05 le 26 compte donc pour le 25 : c'est le jour auquel l'effort appartient, et aucun
+    /// appelant — worker, import, seed — ne peut plus déformer cette date en passant une
+    /// horloge de serveur.
     /// </param>
     /// <returns>
     /// <see langword="true"/> si cet appel vient de compléter la quête, <see langword="false"/>
     /// si elle l'était déjà. C'est ce retour qui permet à l'appelant de n'accorder l'XP qu'une
     /// fois, sans relire <see cref="IsCompleted"/> lui-même.
     /// </returns>
-    public bool Complete(DateTimeOffset instantChezLeChasseur)
+    public bool Complete(DateTimeOffset instantDeLaCompletion)
     {
         if (IsCompleted)
         {
@@ -98,15 +100,12 @@ public sealed class Quest
 
         // Stocké en UTC : Npgsql refuse d'écrire un DateTimeOffset décalé dans un timestamptz, et
         // l'instant absolu est de toute façon la seule part de cette date qui survive à la
-        // relecture. Le jour du Chasseur, lui, est déjà figé dans l'événement ci-dessous.
-        CompletedAt = instantChezLeChasseur.ToUniversalTime();
+        // relecture.
+        CompletedAt = instantDeLaCompletion.ToUniversalTime();
 
-        _domainEvents.Add(new QuestCompletedEvent(
-            Id,
-            HunterProfileId,
-            Domain,
-            Type,
-            DateOnly.FromDateTime(instantChezLeChasseur.DateTime)));
+        // Le jour que la série comptera est celui de la quête, pas celui du tap : l'entité le
+        // porte déjà, personne n'a à le lui souffler.
+        _domainEvents.Add(new QuestCompletedEvent(Id, HunterProfileId, Domain, Type, QuestDate));
 
         return true;
     }

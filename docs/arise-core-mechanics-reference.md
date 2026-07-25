@@ -113,6 +113,31 @@ demanderait ce journal, qui n'existe pas.
 
 Budget, Habitudes et Calendrier appellent cette même méthode : la garde vaut pour eux tous.
 
+### Quel jour la complétion crédite-t-elle ? Celui de la quête, jamais celui du tap
+
+`QuestCompletedEvent.JourDuChasseur` vaut **`Quest.QuestDate`** — le jour pour lequel la quête a
+été posée, celui dont le Chasseur a lu le texte le matin. Pas le jour du tap, pas celui du
+serveur.
+
+Le cas qui tranche : la séance a lieu le 25 à 23h50, le Chasseur tape « Terminé » à 00h05 le 26.
+Dater la série sur le tap créditerait le 26 et laisserait le 25 vide — série rompue pour
+quelqu'un qui n'a rien manqué. L'effort appartient au jour de la quête. Corollaire utile :
+aucun appelant (handler, worker, import) ne peut plus déformer cette date en passant une horloge
+de serveur, puisqu'elle n'est plus déduite d'un instant mais lue sur l'entité.
+
+### Fenêtre de complétion : le jour de la quête, ou la veille
+
+Une quête ne se complète que si `QuestDate >= aujourd'hui (fuseau du Chasseur) - 1 jour`. Plus
+ancienne, la complétion est refusée.
+
+Sans cette borne, un Chasseur revenu après dix jours d'absence complèterait les dix quêtes
+laissées derrière lui — 10 × 20 XP en une minute — et la progression cesserait de mesurer quoi
+que ce soit. Un jour de battement, et pas zéro, parce que le tap arrive parfois après minuit et
+qu'un décalage de fuseau suffit à faire tourner la date sans que le Chasseur soit en retard.
+
+Refus, et non dévaluation : une quête à demi créditée demanderait au Chasseur de comprendre
+pourquoi son gain a fondu. Le Système constate que le jour est révolu et pose la quête suivante.
+
 ### Rupture de série (`HunterProfile.CheckStreakBreak(today)`)
 Appelé une fois par jour par le `briefing-worker`, **avant** la génération des quêtes du jour.
 ```

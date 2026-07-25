@@ -143,14 +143,17 @@ public class CompleteGymQuestCommandHandlerTests
         CompletionPubliee().JourDuChasseur.Should().Be(new DateOnly(2026, 7, 25));
     }
 
+    // Le jour compté est celui de la quête, quel que soit le fuseau depuis lequel le Chasseur
+    // déclare : à Paris il est déjà le 26 quand la séance du 25 se termine, et compter le 26
+    // laisserait le 25 vide pour un Chasseur qui n'a rien manqué.
     [Fact]
-    public async Task Date_la_completion_du_lendemain_pour_un_Chasseur_dont_le_jour_a_deja_tourne()
+    public async Task Date_la_completion_du_jour_de_la_quete_quel_que_soit_le_fuseau()
     {
         var quete = QuetePosee();
 
         await Completer(quete.Id, fuseau: "Europe/Paris");
 
-        CompletionPubliee().JourDuChasseur.Should().Be(new DateOnly(2026, 7, 26));
+        CompletionPubliee().JourDuChasseur.Should().Be(new DateOnly(2026, 7, 25));
     }
 
     [Fact]
