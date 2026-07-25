@@ -182,13 +182,13 @@ public class CompleteGymQuestCommandHandlerTests
     }
 
     [Fact]
-    public async Task Rend_l_XP_gagne_par_la_complétion()
+    public async Task Rend_l_XP_acquis_par_la_complétion()
     {
         var quete = QuetePosee(xp: 25);
 
         var resultat = await Completer(quete.Id);
 
-        resultat.XpGagne.Should().Be(25);
+        resultat.XpAcquis.Should().Be(25);
     }
 
     [Fact]
@@ -264,17 +264,30 @@ public class CompleteGymQuestCommandHandlerTests
         resultat.DejaCompletee.Should().BeTrue();
     }
 
-    // Zéro parce que l'XP a déjà été accordé, pas parce qu'il est refusé : le Chasseur qui a
-    // tapé deux fois n'a rien fait de mal.
+    // Le chiffre annoncé est l'XP acquis pour cette quête, pas celui que ce seul appel vient
+    // d'accorder : un 0 rendu à un Chasseur qui a bel et bien fait sa séance s'afficherait
+    // « +0 XP » à l'écran, et lui donnerait tort. C'est DejaCompletee qui dit que le gain
+    // était déjà au compteur — de quoi écrire « Déjà accomplie — 20 XP acquis ».
     [Fact]
-    public async Task Ne_recompte_aucun_XP_pour_une_quete_deja_accomplie()
+    public async Task Annonce_l_XP_deja_acquis_pour_une_quete_deja_accomplie()
     {
-        var quete = QuetePosee();
+        var quete = QuetePosee(xp: 25);
         await Completer(quete.Id);
 
         var resultat = await Completer(quete.Id);
 
-        resultat.XpGagne.Should().Be(0);
+        resultat.XpAcquis.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task Annonce_l_XP_acquis_quand_une_completion_simultanee_a_gagne()
+    {
+        var quete = QuetePosee(xp: 25);
+        CompletionSimultaneeGagnePar_un_autre(quete);
+
+        var resultat = await Completer(quete.Id);
+
+        resultat.XpAcquis.Should().Be(25);
     }
 
     [Fact]

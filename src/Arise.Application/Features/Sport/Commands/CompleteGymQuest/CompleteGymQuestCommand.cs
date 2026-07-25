@@ -30,12 +30,18 @@ public sealed record CompleteGymQuestCommand(
 /// </param>
 /// <param name="DejaCompletee">
 /// <see langword="true"/> quand la quête était déjà accomplie avant cet appel — double-tap sur
-/// le bouton, renvoi réseau du client. Ce n'est pas une erreur : l'accomplissement tient, et
-/// <paramref name="XpGagne"/> vaut alors 0 parce que l'XP a déjà été accordé, pas parce qu'il
-/// est refusé.
+/// le bouton, renvoi réseau du client, deux appareils. Ce n'est pas une erreur :
+/// l'accomplissement tient, et c'est ce drapeau — pas le montant — qui dit que le gain était
+/// déjà au compteur.
+/// </param>
+/// <param name="XpAcquis">
+/// L'XP que cette quête vaut au Chasseur, qu'il vienne de lui être accordé ou qu'il l'ait déjà
+/// été. Rendre 0 sur un second tap afficherait « +0 XP » à quelqu'un qui a bel et bien fait sa
+/// séance ; avec ce montant et <paramref name="DejaCompletee"/>, le client peut écrire
+/// « Déjà accomplie — 25 XP acquis ».
 /// </param>
 public sealed record CompleteGymQuestResult(
     Guid QuestId,
     DateTimeOffset CompletedAt,
     bool DejaCompletee,
-    int XpGagne);
+    int XpAcquis);

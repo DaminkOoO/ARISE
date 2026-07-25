@@ -78,7 +78,7 @@ public sealed class CompleteGymQuestCommandHandler(
         if (!quete.Complete(timeProvider.GetUtcNow()))
         {
             return new CompleteGymQuestResult(
-                quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpGagne: 0);
+                quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpAcquis: quete.XpReward);
         }
 
         try
@@ -96,7 +96,7 @@ public sealed class CompleteGymQuestCommandHandler(
         catch (ConcurrentQuestUpdateException)
         {
             return new CompleteGymQuestResult(
-                quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpGagne: 0);
+                quete.Id, quete.CompletedAt!.Value, DejaCompletee: true, XpAcquis: quete.XpReward);
         }
 
         await sender.Send(
@@ -110,6 +110,6 @@ public sealed class CompleteGymQuestCommandHandler(
         quete.ClearDomainEvents();
 
         return new CompleteGymQuestResult(
-            quete.Id, quete.CompletedAt!.Value, DejaCompletee: false, XpGagne: quete.XpReward);
+            quete.Id, quete.CompletedAt!.Value, DejaCompletee: false, XpAcquis: quete.XpReward);
     }
 }
