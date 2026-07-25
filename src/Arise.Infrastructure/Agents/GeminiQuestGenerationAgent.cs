@@ -67,6 +67,39 @@ internal sealed class GeminiQuestGenerationAgent(
         TimeSpan.FromSeconds(1));
 
     /// <summary>
+    /// Au-delà de ce nombre, un chiffre cesse d'être un défi de jeu : « 40 pompes » se juge à
+    /// vue d'œil, « 500 pompes » est une prescription déguisée. Le contexte transmis au modèle
+    /// ne porte ni condition physique ni historique de complétion — le plafond ne peut donc pas
+    /// s'adapter au Chasseur, il doit rester bas.
+    /// </summary>
+    private const int MagnitudeMaximale = 100;
+
+    /// <summary>Une quête du jour ne mobilise pas plus d'une heure du Chasseur.</summary>
+    private const int MinutesMaximales = 60;
+
+    private static readonly Regex Nombre = new(
+        @"\d+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    private static readonly Regex DureeEnMinutes = new(
+        @"(\d+)\s*(?:min\b|mins\b|minutes?\b)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    private static readonly Regex DureeEnHeures = new(
+        @"\d+\s*(?:h\b|heures?\b)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
+    /// Toute distance chiffrée, sans plafond : adjointe à une durée, elle vaut une allure
+    /// (« 10 km en 40 minutes » = 4 min/km), et l'allure est déjà interdite.
+    /// </summary>
+    private static readonly Regex DistanceChiffree = new(
+        @"\d+\s*(?:km\b|kilometres?\b|metres?\b|miles?\b)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
     /// Vocabulaire qu'une quête n'a aucune raison d'employer : diagnostic et interprétation de
     /// symptôme, registre médical, et reproche.
     ///
@@ -114,8 +147,10 @@ internal sealed class GeminiQuestGenerationAgent(
     /// (« Éveil du Corps », « Ascension »).</para>
     /// </summary>
     private static readonly Regex MotsOutilsFrancais = new(
-        @"\b(?:le|la|les|un|une|des|du|de|ton|ta|tes|et|ce|cette|qui|que|pour|avec|sans|dans"
-        + @"|sur|ne|pas|plus|tu|toi|chaque|jusqu)\b|à",
+        @"\b(?:le|la|les|un|une|des|du|de|au|aux|en|et|ou|ton|ta|tes|son|sa|ses|mon|ma|mes"
+        + @"|ce|cet|cette|qui|que|pour|par|avec|sans|sous|dans|sur|vers|chez|entre|contre"
+        + @"|selon|pendant|avant|apr[eè]s|jusqu|aujourd|hui|ne|pas|plus|tu|toi|te|se|si|puis"
+        + @"|alors|donc|mais|comme|encore|bien|tout|toute|tous|toutes|chaque|est|sont)\b|à",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(1));
 
@@ -345,12 +380,17 @@ internal sealed class GeminiQuestGenerationAgent(
             return "la quête doit être écrite en français, au tutoiement";
         }
 
-        if (PrescriptionChiffree.IsMatch(texte))
+        var normalise = SansAccents(texte);
+
+        if (PrescriptionChiffree.IsMatch(normalise))
         {
             return "une quête ne prescrit ni charge, ni allure, ni calories, ni pourcentage d'effort";
         }
 
-        var normalise = SansAccents(texte);
+        if (MagnitudeHorsBornes(normalise) is { } motifMagnitude)
+        {
+            return motifMagnitude;
+        }
 
         if (InjonctionAPasserOutre.IsMatch(normalise))
         {
@@ -362,6 +402,44 @@ internal sealed class GeminiQuestGenerationAgent(
         {
             return "une quête ne pose aucun diagnostic, ne prescrit aucun traitement et ne "
                 + "formule jamais de reproche";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Le motif de rejet d'une magnitude que le Chasseur n'a pas les moyens de discuter, ou
+    /// <see langword="null"/>. Borner les unités sans borner les nombres laissait passer
+    /// « Cours 10 km en 40 minutes », « 500 pompes » ou « 3 heures de gainage » : la frontière
+    /// tenable est l'unité <b>et</b> la magnitude.
+    /// </summary>
+    private static string? MagnitudeHorsBornes(string normalise)
+    {
+        if (DistanceChiffree.IsMatch(normalise))
+        {
+            return "une quête ne fixe aucune distance chiffrée";
+        }
+
+        if (DureeEnHeures.IsMatch(normalise))
+        {
+            return $"une quête du jour ne dépasse pas {MinutesMaximales} minutes d'effort";
+        }
+
+        foreach (Match duree in DureeEnMinutes.Matches(normalise))
+        {
+            // Un nombre trop long pour un int est, à plus forte raison, hors bornes.
+            if (!int.TryParse(duree.Groups[1].Value, out var minutes) || minutes > MinutesMaximales)
+            {
+                return $"une quête du jour ne dépasse pas {MinutesMaximales} minutes d'effort";
+            }
+        }
+
+        foreach (Match nombre in Nombre.Matches(normalise))
+        {
+            if (!int.TryParse(nombre.Value, out var valeur) || valeur > MagnitudeMaximale)
+            {
+                return $"aucun chiffre d'une quête ne dépasse {MagnitudeMaximale}";
+            }
         }
 
         return null;
@@ -446,6 +524,10 @@ internal sealed class GeminiQuestGenerationAgent(
             .Append("Court et concret.")
             .Append("\n- Un défi de jeu, jamais une consigne médicale : aucune charge en kilos, ")
             .Append("aucune allure, aucune dépense en calories, aucun pourcentage d'effort.")
+            .Append(CultureInfo.InvariantCulture, $"\n- Aucune distance chiffrée, aucun effort de ")
+            .Append(CultureInfo.InvariantCulture, $"plus de {MinutesMaximales} minutes, et aucun chiffre ")
+            .Append(CultureInfo.InvariantCulture, $"supérieur à {MagnitudeMaximale} : le Chasseur juge ")
+            .Append("seul de son intensité.")
             .Append("\n- Aucun diagnostic, aucune interprétation de symptôme, aucun conseil de ")
             .Append("traitement. Le Chasseur s'arrête quand il le décide.")
             .Append("\n- Termine la description en l'invitant à écouter son corps, à s'arrêter ")

@@ -364,6 +364,8 @@ public class GeminiQuestGenerationAgentTests
     [Theory]
     [InlineData("You failed yesterday, hunter. Push through the pain.")]
     [InlineData("Do 40 push-ups and hold a plank. No excuses.")]
+    // Sans aucun marqueur anglais du lexique : seul le défaut de mot-outil français le rejette.
+    [InlineData("Complete three sets of squats before sunset.")]
     public async Task Se_replie_sur_une_description_qui_n_est_pas_en_francais(string description)
     {
         var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
@@ -411,6 +413,40 @@ public class GeminiQuestGenerationAgentTests
             Charge(description: "40 pompes, 3 séries de squats, 5 minutes de gainage.")));
 
         resultat.EstRepli.Should().BeFalse();
+    }
+
+    // Mais la frontière est l'unité *et* la magnitude : « 40 pompes » est un défi de jeu,
+    // « 500 pompes » est une prescription déguisée. Le contexte transmis au modèle ne porte ni
+    // condition physique ni historique — un Chasseur de niveau 1 recevrait ça tel quel.
+    [Fact]
+    public async Task Se_replie_sur_un_volume_d_effort_demesure()
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(
+            Charge(description: "Enchaîne 500 pompes aujourd'hui, Chasseur.")));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Tiens 3 heures de gainage.")]
+    [InlineData("Marche 90 minutes sans t'arrêter.")]
+    public async Task Se_replie_sur_une_duree_qui_depasse_l_heure(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    // Une distance chiffrée est toujours une allure déguisée dès qu'on lui adjoint une durée
+    // (« 10 km en 40 minutes » vaut 4 min/km) : aucune n'est admise.
+    [Theory]
+    [InlineData("Cours 10 km en 40 minutes.")]
+    [InlineData("Boucle 5 kilomètres à ton rythme.")]
+    public async Task Se_replie_sur_une_distance_chiffree(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
     }
 
     [Fact]
@@ -618,6 +654,19 @@ public class GeminiQuestGenerationAgentTests
 
         transport.Requetes.Should().ContainSingle().Which.Corps
             .Should().Contain("professionnel de santé");
+    }
+
+    // Un plafond que le prompt tait est un plafond que le modèle franchit, et chaque
+    // franchissement coûte deux appels puis un repli servi au Chasseur.
+    [Fact]
+    public async Task Annonce_au_Systeme_les_plafonds_de_magnitude()
+    {
+        var transport = FauxHttpMessageHandler.Repond(Charge());
+
+        await Generer(transport);
+
+        transport.Requetes.Should().ContainSingle().Which.Corps
+            .Should().Contain("60 minutes").And.Contain("distance");
     }
 
     [Fact]
