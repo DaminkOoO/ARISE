@@ -83,4 +83,19 @@ public class DependencyInjectionTests
         fournisseur.GetRequiredService<IQuestGenerationAgent>()
             .Should().BeOfType<GeminiQuestGenerationAgent>();
     }
+
+    // Le délai par défaut d'un HttpClient est de 100 secondes — soit 200 au pire avec la
+    // nouvelle tentative de l'agent de quêtes, sur un chemin de lecture où le Chasseur attend
+    // devant son écran. Mieux vaut le repli au bout de dix secondes.
+    [Theory]
+    [InlineData(nameof(IOnboardingAgent))]
+    [InlineData(nameof(IQuestGenerationAgent))]
+    public void Borne_le_delai_d_attente_des_clients_Gemini(string nomDuClient)
+    {
+        using var fournisseur = Cablage().BuildServiceProvider();
+
+        var client = fournisseur.GetRequiredService<IHttpClientFactory>().CreateClient(nomDuClient);
+
+        client.Timeout.Should().Be(TimeSpan.FromSeconds(10));
+    }
 }

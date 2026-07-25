@@ -16,6 +16,14 @@ namespace Arise.Infrastructure;
 /// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Budget d'attente accordé au Système. Le défaut d'un <see cref="HttpClient"/> est de 100
+    /// secondes — 200 au pire pour l'agent de quêtes, qui réessaie une fois — alors que ces
+    /// deux agents sont appelés sur un chemin où le Chasseur attend devant son écran. Au-delà
+    /// de dix secondes, une quête de repli vaut mieux qu'une page qui tourne.
+    /// </summary>
+    private static readonly TimeSpan DelaiDAttenteGemini = TimeSpan.FromSeconds(10);
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         string connectionString)
@@ -45,12 +53,14 @@ public static class DependencyInjection
         {
             var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
             client.BaseAddress = new Uri(gemini.BaseUrl);
+            client.Timeout = DelaiDAttenteGemini;
         });
 
         services.AddHttpClient<IQuestGenerationAgent, GeminiQuestGenerationAgent>((provider, client) =>
         {
             var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
             client.BaseAddress = new Uri(gemini.BaseUrl);
+            client.Timeout = DelaiDAttenteGemini;
         });
 
         return services;
