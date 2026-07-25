@@ -411,6 +411,36 @@ public class GeminiQuestGenerationAgentTests
         resultat.EstRepli.Should().BeTrue();
     }
 
+    // La culpabilisation passe rarement par « honte » ou « médiocre » : elle passe par le
+    // reproche implicite, celui qu'un modèle adopte spontanément quand on lui transmet une
+    // série à zéro.
+    [Theory]
+    [InlineData("Tu as encore abandonné hier. Ne recommence pas.")]
+    [InlineData("Ta série est brisée par ta faute, Chasseur.")]
+    [InlineData("Ta séance d'hier était minable.")]
+    [InlineData("Tu n'as pas tenu ton engagement, Chasseur.")]
+    [InlineData("Encore une fois, tu es passé à côté de ta séance.")]
+    public async Task Se_replie_sur_un_reproche_implicite(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    // Le jour où le Chasseur a déjà décroché est précisément celui où le garde-fou doit tenir :
+    // c'est StreakCurrent = 0 qui invite le modèle au reproche.
+    [Fact]
+    public async Task Se_replie_sur_un_reproche_le_jour_ou_la_serie_est_a_zero()
+    {
+        var transport = FauxHttpMessageHandler.Repond(
+            Charge(description: "Ta série est tombée par ta faute : reprends-toi."));
+
+        var resultat = await Agent(transport).ExecuteAsync(
+            new QuestGenerationAgentRequest(3, HunterRank.E, 0), CancellationToken.None);
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Se_replie_sur_un_titre_qui_viole_un_garde_fou()
     {

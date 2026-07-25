@@ -139,6 +139,21 @@ internal sealed class GeminiQuestGenerationAgent(
         TimeSpan.FromSeconds(1));
 
     /// <summary>
+    /// Le reproche implicite — celui qui ne dit ni « honte » ni « médiocre », et qui est
+    /// pourtant le registre qu'un modèle adopte quand on lui transmet une série à zéro,
+    /// c'est-à-dire le jour où le Chasseur a déjà décroché (règle n°5).
+    ///
+    /// <para>« n'abandonne pas », pourtant bien intentionné, tombe sous ce filtre : le repli
+    /// qui en résulte reste un texte accueillant, là où un reproche laissé passer atteint
+    /// quelqu'un un mauvais jour.</para>
+    /// </summary>
+    private static readonly Regex ReprocheImplicite = new(
+        @"\babandonn\w*|\bta faute\b|\bnuls?\b|\bminable|\bpitoyable|\bpathetique"
+        + @"|\btu n'as pas\b|\bencore une fois\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
     /// L'injonction à s'entraîner malgré un signal du corps — le vrai danger de la règle n°5,
     /// là où le mot « douleur » seul n'en est pas un.
     /// </summary>
@@ -415,6 +430,12 @@ internal sealed class GeminiQuestGenerationAgent(
                 + "contraire à s'arrêter et à consulter un professionnel de santé";
         }
 
+        if (ReprocheImplicite.IsMatch(normalise))
+        {
+            return "une quête ne reproche jamais rien au Chasseur, même quand sa série est "
+                + "tombée à zéro";
+        }
+
         if (VocabulaireInterdit.IsMatch(normalise))
         {
             return "une quête ne pose aucun diagnostic, ne prescrit aucun traitement et ne "
@@ -464,10 +485,14 @@ internal sealed class GeminiQuestGenerationAgent(
 
     /// <summary>
     /// Débarrasse le texte de ses accents pour que la recherche de vocabulaire interdit ne se
-    /// laisse pas contourner par un mot mal accentué.
+    /// laisse pas contourner par un mot mal accentué, et ramène l'apostrophe typographique à
+    /// l'apostrophe droite — un modèle emploie volontiers la première, et « tu n’as pas »
+    /// passerait alors au travers de « tu n'as pas ».
     /// </summary>
     private static string SansAccents(string texte) =>
         new(texte
+            .Replace('’', '\'')
+            .Replace('ʼ', '\'')
             .Normalize(NormalizationForm.FormD)
             .Where(caractere =>
                 CharUnicodeInfo.GetUnicodeCategory(caractere) != UnicodeCategory.NonSpacingMark)
