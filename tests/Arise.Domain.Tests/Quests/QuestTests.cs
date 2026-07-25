@@ -322,8 +322,22 @@ public class QuestTests
         quete.IsCompleted.Should().BeTrue();
     }
 
+    [Fact]
+    public void Enregistre_l_instant_absolu_de_la_completion()
+    {
+        var quete = Generer();
+
+        quete.Complete(VingtTroisHeuresTrenteANewYork);
+
+        quete.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 26, 3, 30, 0, TimeSpan.Zero));
+    }
+
     // Stocké en UTC : Npgsql refuse d'écrire un DateTimeOffset décalé dans un timestamptz, et
     // l'instant absolu est de toute façon la seule part de cette date qui survive à la relecture.
+    //
+    // L'assertion porte sur le décalage et non sur l'instant : Should().Be() compare deux
+    // DateTimeOffset par leur instant absolu, si bien qu'un CompletedAt resté à -04:00 y
+    // passerait sans broncher. C'est la conversion elle-même qu'on éprouve ici.
     [Fact]
     public void Enregistre_l_instant_de_completion_en_UTC()
     {
@@ -331,7 +345,7 @@ public class QuestTests
 
         quete.Complete(VingtTroisHeuresTrenteANewYork);
 
-        quete.CompletedAt.Should().Be(new DateTimeOffset(2026, 7, 26, 3, 30, 0, TimeSpan.Zero));
+        quete.CompletedAt!.Value.Offset.Should().Be(TimeSpan.Zero);
     }
 
     [Fact]

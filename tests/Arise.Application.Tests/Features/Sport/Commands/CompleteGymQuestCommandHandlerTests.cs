@@ -197,6 +197,20 @@ public class CompleteGymQuestCommandHandlerTests
         resultat.CompletedAt.Should().Be(TardLeVingtCinqANewYork);
     }
 
+    // Le contrat rend l'instant en UTC, et c'est au client de l'afficher dans le fuseau du
+    // Chasseur — celui-là même qu'il vient d'envoyer. L'assertion porte sur le décalage : Be()
+    // compare deux DateTimeOffset par leur instant absolu et laisserait passer n'importe quel
+    // décalage équivalent.
+    [Fact]
+    public async Task Rend_l_instant_de_completion_en_UTC()
+    {
+        var quete = QuetePosee();
+
+        var resultat = await Completer(quete.Id);
+
+        resultat.CompletedAt.Offset.Should().Be(TimeSpan.Zero);
+    }
+
     [Fact]
     public async Task N_annonce_pas_une_quete_fraichement_completee_comme_deja_faite()
     {

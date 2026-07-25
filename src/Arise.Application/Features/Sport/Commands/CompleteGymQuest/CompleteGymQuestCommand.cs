@@ -22,6 +22,12 @@ public sealed record CompleteGymQuestCommand(
 /// Ce que la complétion rend à l'écran : le strict nécessaire pour confirmer l'accomplissement
 /// et annoncer le gain.
 /// </summary>
+/// <param name="CompletedAt">
+/// L'instant de l'accomplissement, <b>en UTC</b> : c'est la seule part de cette date qui
+/// survive à l'aller-retour en base, et le client la rend dans le fuseau du Chasseur — celui-là
+/// même qu'il vient d'envoyer dans la commande. Le rendre décalé donnerait deux sources de
+/// vérité pour la même chose.
+/// </param>
 /// <param name="DejaCompletee">
 /// <see langword="true"/> quand la quête était déjà accomplie avant cet appel — double-tap sur
 /// le bouton, renvoi réseau du client. Ce n'est pas une erreur : l'accomplissement tient, et
