@@ -1,27 +1,23 @@
 using Arise.Application.Common.Abstractions;
-using Arise.Application.Common.Exceptions;
+using Arise.Application.Features.Sport.Commands.GenerateTodayQuest;
 using Arise.Domain.Quests;
 using MediatR;
 
 namespace Arise.Application.Features.Sport.Queries.GetTodayGymQuest;
 
 /// <summary>
-/// Rend la quête de sport du jour d'un Chasseur, en la générant au premier passage de la
-/// journée puis en la relisant les fois suivantes.
+/// Rend la quête de sport du jour d'un Chasseur : celle qui est déjà posée, ou celle que
+/// <see cref="GenerateTodayQuestCommand"/> vient d'écrire s'il n'y en a pas encore.
 ///
-/// <para><b>Une requête qui écrit, et c'est assumé.</b> La règle CQRS du dépôt veut qu'une
-/// requête ne mute rien ; celle-ci pose une ligne quand la quête du jour n'existe pas encore.
-/// L'écriture n'est pas l'intention du Chasseur — il demande sa quête — mais la conséquence
-/// d'une génération paresseuse : le texte doit être figé au premier affichage, sans quoi
-/// chaque rafraîchissement rappellerait le Système et rendrait une quête différente. La seule
-/// alternative serait une commande de génération déclenchée par le <c>briefing-worker</c> avant
-/// la première consultation ; elle n'existe pas encore, et laisserait de toute façon ce chemin
-/// nécessaire pour un Chasseur qui ouvre l'app avant le passage du worker.</para>
+/// <para>La génération est paresseuse parce que le texte doit être figé au premier affichage :
+/// sans cela, chaque rafraîchissement rappellerait le Système et rendrait une quête différente.
+/// Elle passe par MediatR et non par un appel direct au handler d'écriture — la commande garde
+/// ainsi sa validation et son pipeline — et le chemin reste nécessaire même une fois le
+/// <c>briefing-worker</c> en place, pour le Chasseur qui ouvre l'app avant son passage.</para>
 /// </summary>
 public sealed class GetTodayGymQuestQueryHandler(
-    IHunterProfileRepository hunterProfiles,
     IQuestRepository quests,
-    IQuestGenerationAgent questGenerationAgent,
+    ISender sender,
     TimeProvider timeProvider)
     : IRequestHandler<GetTodayGymQuestQuery, GetTodayGymQuestResult>
 {
@@ -31,8 +27,7 @@ public sealed class GetTodayGymQuestQueryHandler(
         var aujourdhui = AujourdhuiChezLeChasseur(request.FuseauHoraire);
 
         // Une seule génération par jour : la quête lue le matin est celle qu'on retrouve le
-        // soir, texte compris. On regarde donc d'abord si elle est déjà posée, avant même de
-        // charger le profil — le chemin le plus fréquent ne coûte qu'une lecture.
+        // soir, texte compris. Le chemin le plus fréquent ne coûte donc qu'une lecture.
         var dejaPosee = await quests.GetForDayAsync(
             request.HunterProfileId, QuestDomain.Sport, aujourdhui, cancellationToken);
 
@@ -41,28 +36,10 @@ public sealed class GetTodayGymQuestQueryHandler(
             return Vers(dejaPosee);
         }
 
-        var profil = await hunterProfiles.GetByIdAsync(request.HunterProfileId, cancellationToken)
-            ?? throw new HunterProfileNotFoundException();
+        var generee = await sender.Send(
+            new GenerateTodayQuestCommand(request.HunterProfileId, aujourdhui), cancellationToken);
 
-        var generee = await questGenerationAgent.ExecuteAsync(
-            new QuestGenerationAgentRequest(profil.Level, profil.Rank, profil.StreakCurrent),
-            cancellationToken);
-
-        var quete = Quest.Generate(
-            profil.Id,
-            QuestDomain.Sport,
-            aujourdhui,
-            generee.Title,
-            generee.Description,
-            generee.Type,
-            generee.StatTarget,
-            generee.Difficulty,
-            generee.XpReward,
-            generee.EstRepli);
-
-        await quests.SaveAsync(quete, cancellationToken);
-
-        return Vers(quete);
+        return Vers(generee);
     }
 
     /// <summary>
