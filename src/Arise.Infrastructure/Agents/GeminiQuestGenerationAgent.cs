@@ -103,6 +103,33 @@ internal sealed class GeminiQuestGenerationAgent(
         TimeSpan.FromSeconds(1));
 
     /// <summary>
+    /// Mots-outils français, cherchés dans la description générée. Tous les autres garde-fous
+    /// de ce fichier sont des lexiques français : une réponse en anglais les franchit
+    /// intégralement — « You failed yesterday, hunter. Push through the pain. » est à la fois
+    /// une culpabilisation et une injonction à ignorer la douleur — et s'afficherait telle
+    /// quelle au Chasseur, en violation de la règle n°7 par-dessus le marché.
+    ///
+    /// <para>Une description d'une à deux phrases en porte forcément au moins un ; c'est ce qui
+    /// rend l'heuristique fiable là où elle ne le serait pas sur un titre nominal
+    /// (« Éveil du Corps », « Ascension »).</para>
+    /// </summary>
+    private static readonly Regex MotsOutilsFrancais = new(
+        @"\b(?:le|la|les|un|une|des|du|de|ton|ta|tes|et|ce|cette|qui|que|pour|avec|sans|dans"
+        + @"|sur|ne|pas|plus|tu|toi|chaque|jusqu)\b|à",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
+    /// Le pendant du contrôle précédent pour le titre, trop court pour porter un mot-outil :
+    /// ici on ne cherche pas du français, on refuse ce qui est visiblement anglais.
+    /// </summary>
+    private static readonly Regex MarqueurAnglais = new(
+        @"\b(?:you|your|the|and|with|through|push|keep|today|yesterday|dont|don't|reps"
+        + @"|workout|hunter|no\s+excuses)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>
     /// La quête servie quand le Système n'a rien rendu d'utilisable. Elle respecte les mêmes
     /// garde-fous que ce qu'on exige du modèle — un test le vérifie en la lui faisant repasser
     /// — et porte le renvoi vers un professionnel de santé : c'est le seul texte que le
@@ -295,6 +322,14 @@ internal sealed class GeminiQuestGenerationAgent(
             return Tentative.Rejet(motifDescription);
         }
 
+        // En dernier, et sur la description seule : c'est le contrôle le plus grossier des
+        // trois, celui qui rattrape ce que des lexiques français laissent forcément passer.
+        if (!MotsOutilsFrancais.IsMatch(description))
+        {
+            logger.LogWarning("Description de quête rejetée : elle ne semble pas être en français.");
+            return Tentative.Rejet("la quête doit être écrite en français, au tutoiement");
+        }
+
         return Tentative.Reussite(new QuestGenerationAgentResult(
             titre, description, type, statCible, difficulte, charge.XpReward, EstRepli: false));
     }
@@ -305,6 +340,11 @@ internal sealed class GeminiQuestGenerationAgent(
     /// </summary>
     private static string? ViolationDesGardeFous(string texte)
     {
+        if (MarqueurAnglais.IsMatch(texte))
+        {
+            return "la quête doit être écrite en français, au tutoiement";
+        }
+
         if (PrescriptionChiffree.IsMatch(texte))
         {
             return "une quête ne prescrit ni charge, ni allure, ni calories, ni pourcentage d'effort";

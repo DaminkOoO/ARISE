@@ -357,6 +357,29 @@ public class GeminiQuestGenerationAgentTests
         resultat.EstRepli.Should().BeFalse();
     }
 
+    // Règle n°7, et bien plus qu'elle : les deux lexiques de garde-fous sont français. Une
+    // réponse en anglais les franchit tous — « Push through the pain » est à la fois une
+    // culpabilisation et une injonction à ignorer la douleur, et elle s'afficherait telle
+    // quelle au Chasseur. La langue ne peut donc pas n'être garantie que par le prompt.
+    [Theory]
+    [InlineData("You failed yesterday, hunter. Push through the pain.")]
+    [InlineData("Do 40 push-ups and hold a plank. No excuses.")]
+    public async Task Se_replie_sur_une_description_qui_n_est_pas_en_francais(string description)
+    {
+        var resultat = await Generer(FauxHttpMessageHandler.Repond(Charge(description: description)));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Se_replie_sur_un_titre_en_anglais()
+    {
+        var resultat = await Generer(
+            FauxHttpMessageHandler.Repond(Charge(titre: "Push Through The Pain")));
+
+        resultat.EstRepli.Should().BeTrue();
+    }
+
     // Règle n°5 — aucune quête n'est présentée de façon culpabilisante.
     [Theory]
     [InlineData("Tu as échoué hier : rattrape-toi ou reste médiocre.")]
