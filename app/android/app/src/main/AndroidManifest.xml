@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- L'app parle à l'API ARISE (authentification, puis tout le reste) : sans
+         cette permission ici, seule la variante de debug — qui la déclare pour
+         ses propres besoins d'outillage — aurait accès au réseau, et l'APK
+         livré ne joindrait aucune API. Le HTTP en clair, lui, reste réservé au
+         debug. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="arise"
         android:name="${applicationName}"
