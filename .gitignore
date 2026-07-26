@@ -520,3 +520,9 @@ secrets.json
 # Corpus RAG (phase 6) et relevés du scraper (phase 7)
 data/corpus/
 data/scraped/
+
+# ---- Front Flutter ----
+# La règle [Dd]ebug/ plus haut vise les sorties de build .NET (bin/Debug/). Elle
+# avale au passage la variante Android « debug », qui est du source versionné :
+# c'est elle qui autorise le HTTP en clair vers l'API locale.
+!app/android/app/src/debug/
