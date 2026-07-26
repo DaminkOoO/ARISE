@@ -1,3 +1,4 @@
+using Arise.Domain.Habits;
 using Arise.Domain.Hunters;
 using Arise.Domain.Quests;
 using Arise.Domain.Users;
@@ -25,6 +26,8 @@ public sealed class AriseDbContext(DbContextOptions<AriseDbContext> options)
     public DbSet<HunterProfile> HunterProfiles => Set<HunterProfile>();
 
     public DbSet<Quest> Quests => Set<Quest>();
+
+    public DbSet<Habit> Habits => Set<Habit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
