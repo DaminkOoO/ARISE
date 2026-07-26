@@ -5,6 +5,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:arise/features/accueil/home_models.dart';
 import 'package:arise/features/accueil/home_providers.dart';
 import 'package:arise/features/accueil/home_service.dart';
+import 'package:arise/features/auth/auth_providers.dart';
+import 'package:arise/features/auth/token_store.dart';
 import 'package:arise/main.dart';
 
 /// Double de service injectable — jamais d'appel réseau réel, même en test
@@ -14,6 +16,21 @@ class _FakeHomeService implements HomeService {
 
   @override
   Future<HomeData> chargerAccueil() => Future.value(_demo);
+}
+
+/// Un Chasseur déjà connecté : l'app démarre désormais sur la porte d'entrée,
+/// qui n'ouvre l'accueil que si un jeton est en stockage sécurisé.
+class _JetonDejaLa implements TokenStore {
+  const _JetonDejaLa();
+
+  @override
+  Future<void> enregistrer(String token) async {}
+
+  @override
+  Future<String?> lire() async => 'jwt-de-test';
+
+  @override
+  Future<void> effacer() async {}
 }
 
 const _demo = HomeData(
@@ -49,6 +66,7 @@ void main() {
         ProviderScope(
           overrides: [
             homeServiceProvider.overrideWithValue(const _FakeHomeService()),
+            tokenStoreProvider.overrideWithValue(const _JetonDejaLa()),
           ],
           child: const AriseApp(),
         ),
