@@ -38,6 +38,16 @@ public sealed class Habit
     public bool IsArchived { get; private set; }
 
     /// <summary>
+    /// Range l'habitude : elle quitte la liste du Chasseur sans rien perdre de son histoire.
+    ///
+    /// <para>Ranger n'est pas abandonner, et l'entité ne garde donc aucune trace d'un « échec » :
+    /// une habitude archivée est une intention qui a changé, pas une faute. Idempotente — un
+    /// double-tap ou deux appareils mènent au même appel, et le second n'a rien à faire
+    /// échouer.</para>
+    /// </summary>
+    public void Archive() => IsArchived = true;
+
+    /// <summary>
     /// Déclare une habitude pour un Chasseur.
     /// </summary>
     /// <exception cref="ArgumentException">

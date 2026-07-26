@@ -113,6 +113,31 @@ public class HabitTests
         acte.Should().Throw<ArgumentException>();
     }
 
+    // Une habitude rangée n'est ni un échec ni une suppression : elle quitte la liste du jour et
+    // garde son histoire. C'est ce qui permet au Chasseur de faire le ménage sans rien perdre.
+    [Fact]
+    public void Range_l_habitude_qu_on_archive()
+    {
+        var habitude = Creer();
+
+        habitude.Archive();
+
+        habitude.IsArchived.Should().BeTrue();
+    }
+
+    // Deux appareils, ou un double-tap sur le bouton : l'archivage est une bascule, pas un
+    // compteur, et le second appel n'a rien à faire échouer.
+    [Fact]
+    public void Reste_archivee_apres_un_second_archivage()
+    {
+        var habitude = Creer();
+
+        habitude.Archive();
+        habitude.Archive();
+
+        habitude.IsArchived.Should().BeTrue();
+    }
+
     // La colonne est un timestamp with time zone, sur lequel Npgsql refuse un DateTimeOffset
     // décalé. Sans cette garde, un appelant qui passe DateTimeOffset.Now ne l'apprend qu'au
     // SaveChangesAsync, loin d'ici.
