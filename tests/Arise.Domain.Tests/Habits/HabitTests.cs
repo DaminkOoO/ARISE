@@ -59,4 +59,72 @@ public class HabitTests
     {
         Creer().IsArchived.Should().BeFalse();
     }
+
+    // Les espaces de bordure sont invisibles dans une liste : sans rognage, « Courir » et
+    // « Courir  » deviennent deux habitudes distinctes, aux séries séparées.
+    [Fact]
+    public void Rogne_les_espaces_de_bordure_du_nom()
+    {
+        Creer(nom: "  Courir  ").Name.Should().Be("Courir");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Refuse_un_nom_vide(string nom)
+    {
+        var acte = () => Creer(nom: nom);
+
+        acte.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Refuse_un_nom_plus_long_que_la_colonne()
+    {
+        var acte = () => Creer(nom: new string('a', Habit.LongueurMaximaleNom + 1));
+
+        acte.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Accepte_un_nom_exactement_a_la_borne()
+    {
+        var nom = new string('a', Habit.LongueurMaximaleNom);
+
+        Creer(nom: nom).Name.Should().Be(nom);
+    }
+
+    // La borne porte sur le nom rogné, qui est celui que la colonne stockera : la mesurer sur
+    // le brut refuserait une saisie que l'entité aurait acceptée une fois rognée.
+    [Fact]
+    public void Accepte_un_nom_dont_seuls_les_espaces_de_bordure_depassent_la_borne()
+    {
+        var nom = new string('a', Habit.LongueurMaximaleNom);
+
+        Creer(nom: $"  {nom}  ").Name.Should().Be(nom);
+    }
+
+    [Fact]
+    public void Refuse_une_habitude_sans_Chasseur()
+    {
+        var acte = () => Habit.Create(
+            Guid.Empty, "Boire deux litres d'eau", HabitFrequency.Quotidienne, Creation);
+
+        acte.Should().Throw<ArgumentException>();
+    }
+
+    // La colonne est un timestamp with time zone, sur lequel Npgsql refuse un DateTimeOffset
+    // décalé. Sans cette garde, un appelant qui passe DateTimeOffset.Now ne l'apprend qu'au
+    // SaveChangesAsync, loin d'ici.
+    [Fact]
+    public void Refuse_un_instant_de_creation_decale()
+    {
+        var acte = () => Habit.Create(
+            Chasseur,
+            "Boire deux litres d'eau",
+            HabitFrequency.Quotidienne,
+            new DateTimeOffset(2026, 7, 26, 9, 0, 0, TimeSpan.FromHours(2)));
+
+        acte.Should().Throw<ArgumentException>();
+    }
 }
