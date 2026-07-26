@@ -65,5 +65,16 @@ internal sealed class HabitConfiguration : IEntityTypeConfiguration<Habit>
         builder.HasIndex(habit => new { habit.HunterProfileId, habit.Name })
             .IsUnique()
             .HasFilter(FiltreDesHabitudesActives);
+
+        // Et un index non filtré sur le seul Chasseur, qui n'est pas redondant avec le
+        // précédent : PostgreSQL ne peut servir un index partiel que si la requête porte son
+        // prédicat, et « les habitudes du Chasseur » — archivées comprises, c'est le contrat de
+        // GetForHunterAsync — ne l'implique pas. Sans lui, lister l'écran Habitudes balaye la
+        // table entière, et la cascade à la suppression d'un profil paye le même prix.
+        //
+        // Déclaré à la main parce que la convention d'EF Core n'a pas créé l'index de clé
+        // étrangère qu'elle crée d'ordinaire : elle le juge couvert dès qu'un index commence par
+        // les colonnes de la FK, sans regarder si ce dernier est filtré.
+        builder.HasIndex(habit => habit.HunterProfileId);
     }
 }
