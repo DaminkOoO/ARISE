@@ -18,6 +18,13 @@ final tokenStoreProvider = Provider<TokenStore>(
   (ref) => const SecureTokenStore(FlutterSecureStorage()),
 );
 
+/// Jeton déjà en stockage sécurisé, lu une fois au démarrage : c'est lui qui
+/// décide de l'écran d'entrée. `null` = aucun Chasseur connecté sur ce
+/// téléphone.
+final jetonStockeProvider = FutureProvider<String?>(
+  (ref) => ref.watch(tokenStoreProvider).lire(),
+);
+
 /// Pilote la soumission du formulaire. L'état porte le JWT obtenu (ou null tant
 /// qu'aucune tentative n'a abouti), et déballe chargement / erreur.
 class AuthController extends Notifier<AsyncValue<String?>> {
