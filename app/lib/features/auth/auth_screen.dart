@@ -8,6 +8,7 @@ import '../../widgets/system_label.dart';
 import '../../widgets/system_panel.dart';
 import 'auth_models.dart';
 import 'auth_providers.dart';
+import 'auth_service.dart';
 
 /// Écran d'entrée : connexion ou inscription du Chasseur. Sobre, coins HUD,
 /// tutoiement. Conçu selon la charte (la référence n'a pas d'écran dédié).
@@ -55,6 +56,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (nom.isEmpty || mdp.isEmpty) return;
     ref.read(authControllerProvider.notifier).soumettre(_mode, nom, mdp);
   }
+
+  /// Le service a déjà traduit ce qu'il sait dire ; tout le reste est une
+  /// panne imprévue, et le Chasseur n'a pas à lire une exception Dart.
+  String _messageDe(Object? erreur) => erreur is ErreurAuth
+      ? erreur.message
+      : Textes.erreurSysteme;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +133,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         if (etat is AsyncError) ...[
                           const SizedBox(height: 14),
                           Text(
-                            Textes.identifiantsRefuses,
+                            _messageDe(etat.error),
                             style: AriseTypography.corps
                                 .copyWith(color: AriseColors.sport),
                           ),

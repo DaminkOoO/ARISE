@@ -7,6 +7,7 @@ import 'package:arise/features/auth/auth_providers.dart';
 import 'package:arise/features/auth/auth_screen.dart';
 import 'package:arise/features/auth/auth_service.dart';
 import 'package:arise/features/auth/token_store.dart';
+import 'package:arise/l10n/textes.dart';
 
 import '../../support/fonts.dart';
 
@@ -14,7 +15,7 @@ class _FakeAuthService implements AuthService {
   _FakeAuthService({this.token = 'jwt-de-test', this.erreur});
 
   final String token;
-  final Object? erreur;
+  Object? erreur;
   AuthMode? modeAppele;
   String? nomAppele;
 
@@ -110,7 +111,9 @@ void main() {
 
   testWidgets('affiche un message français si l\'authentification échoue',
       (tester) async {
-    final service = _FakeAuthService(erreur: Exception('401'));
+    final service = _FakeAuthService(
+      erreur: const ErreurAuth(Textes.identifiantsRefuses),
+    );
     await _pump(tester, service: service, store: _FakeTokenStore());
 
     await tester.enterText(find.byKey(const Key('champ-nom')), 'KAEL');
@@ -119,5 +122,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Identifiants'), findsOneWidget);
+  });
+
+  testWidgets('affiche le motif exact que le service a traduit', (tester) async {
+    final service = _FakeAuthService(
+      erreur: const ErreurAuth(Textes.nomChasseurDejaPris),
+    );
+    await _pump(tester, service: service, store: _FakeTokenStore());
+
+    await tester.enterText(find.byKey(const Key('champ-nom')), 'KAEL');
+    await tester.enterText(find.byKey(const Key('champ-mot-de-passe')), 'x');
+    await tester.tap(find.byKey(const Key('bouton-soumettre')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(Textes.nomChasseurDejaPris), findsOneWidget);
+    expect(find.textContaining('Identifiants'), findsNothing);
+  });
+
+  testWidgets("une panne imprévue ne montre jamais l'exception brute",
+      (tester) async {
+    final service = _FakeAuthService(erreur: StateError('Bad state: boom'));
+    await _pump(tester, service: service, store: _FakeTokenStore());
+
+    await tester.enterText(find.byKey(const Key('champ-nom')), 'KAEL');
+    await tester.enterText(find.byKey(const Key('champ-mot-de-passe')), 'x');
+    await tester.tap(find.byKey(const Key('bouton-soumettre')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(Textes.erreurSysteme), findsOneWidget);
+    expect(find.textContaining('Bad state'), findsNothing);
+  });
+
+  testWidgets("une nouvelle tentative efface l'échec précédent", (tester) async {
+    final service = _FakeAuthService(
+      erreur: const ErreurAuth(Textes.nomChasseurDejaPris),
+    );
+    await _pump(tester, service: service, store: _FakeTokenStore());
+
+    await tester.enterText(find.byKey(const Key('champ-nom')), 'KAEL');
+    await tester.enterText(find.byKey(const Key('champ-mot-de-passe')), 'x');
+    await tester.tap(find.byKey(const Key('bouton-soumettre')));
+    await tester.pumpAndSettle();
+    expect(find.text(Textes.nomChasseurDejaPris), findsOneWidget);
+
+    // Le Chasseur corrige son nom : le reproche disparaît dès qu'il resoumet.
+    service.erreur = null;
+    await tester.enterText(find.byKey(const Key('champ-nom')), 'KAEL-2');
+    await tester.tap(find.byKey(const Key('bouton-soumettre')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(Textes.nomChasseurDejaPris), findsNothing);
   });
 }
