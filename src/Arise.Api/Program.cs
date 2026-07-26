@@ -8,6 +8,7 @@ using Arise.Application.Features.Auth.Commands.RegisterUser;
 using Arise.Infrastructure;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
+using Arise.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -67,6 +68,12 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Le schéma avant la première requête : sans cela, la pile docker compose démarre sur un volume
+// vierge et /auth/register échoue en « 42P01: relation "users" does not exist ». Les raisons du
+// choix (au démarrage, sans condition d'environnement, sans reprise) sont détaillées sur
+// MigrationsDeDemarrage, côté Infrastructure.
+await app.Services.AppliquerLesMigrationsEnAttenteAsync();
 
 app.UseExceptionHandler();
 
