@@ -40,6 +40,10 @@ abstract final class Textes {
   static const String identifiantsRefuses =
       'Identifiants refusés. Vérifie ton nom de Chasseur et ton mot de passe.';
   static const String authAccroche = 'Le Système attend ton éveil.';
+  static const String nomChasseurDejaPris =
+      'Ce nom de Chasseur est déjà pris. Choisis-en un autre.';
+  static const String serveurInjoignable =
+      'Le Système est injoignable. Vérifie ta connexion, puis réessaie.';
 
   // Sport.
   static const String sportTitre = 'SPORT';

@@ -1,14 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 
 import 'auth_models.dart';
 import 'auth_service.dart';
 import 'token_store.dart';
 
 /// Service d'authentification injectable (remplacé par un double en test).
-final authServiceProvider = Provider<AuthService>(
-  (ref) => const AuthServiceNonBranche(),
-);
+final authServiceProvider = Provider<AuthService>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return AuthServiceHttp(client: client);
+});
 
 /// Stockage sécurisé du JWT (remplacé par un double en test).
 final tokenStoreProvider = Provider<TokenStore>(

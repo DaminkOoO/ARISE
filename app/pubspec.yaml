@@ -40,6 +40,10 @@ dependencies:
 
   # Stockage sécurisé du JWT émis par le backend (jamais en clair).
   flutter_secure_storage: ^9.2.4
+  # Client HTTP de l'API ARISE. Son `Client` est injectable : les tests le
+  # remplacent par un MockClient (package:http/testing) — jamais d'appel
+  # réseau réel dans la suite.
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
