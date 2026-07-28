@@ -64,6 +64,46 @@ sans vérifier que `xp_reward` tombe dans la bonne fourchette) :
 | Quête de pénalité | 10 (fixe, toujours facile par conception) |
 | Boss Raid (hebdomadaire) | 100–200 |
 
+### XP d'engagement — habitudes et tâches
+
+Les quêtes ne sont pas le seul chemin de progression : tenir une habitude et cocher une tâche
+rapportent aussi. Ces montants sont **fixes** — ils ne sortent d'aucun agent, et rien ne les
+valide côté LLM.
+
+| Geste | XP |
+|---|---|
+| Habitude **quotidienne** tenue | 3 |
+| Habitude **hebdomadaire** tenue | 10 |
+| Tâche complétée | 5 |
+| **Plafond quotidien cumulé (habitudes + tâches)** | **25** |
+
+**Pourquoi si peu, et pourquoi un plafond.** Le rythme annoncé plus haut — rang S en ~3 mois,
+7920 XP, soit ~88 XP/jour — est calculé sur les seules quêtes. Tout ce qu'on ajoute à côté
+raccourcit ce délai. Les montants ci-dessus sont donc dimensionnés pour rester une garniture :
+
+- Usage réaliste (2 habitudes + 1 tâche par jour) : +11 XP/jour, soit 99 au total → niveau 25
+  en **80 jours**. Le rythme du document tient.
+- Usage maximal (plafond atteint tous les jours) : +25 XP/jour, soit 113 → niveau 25 en
+  **70 jours**. Un Chasseur qui tient tout, tous les jours, mérite d'arriver plus tôt.
+
+**Le plafond est la seule protection contre la ferme d'XP**, et il est indispensable : le
+nombre de quêtes du jour est fixé par le Système, mais le nombre d'habitudes et de tâches est
+fixé par le Chasseur lui-même. Sans plafond, déclarer cinquante tâches et les cocher d'affilée
+vaut 250 XP en une minute. C'est pourquoi le plafond est **cumulé** entre les deux domaines
+plutôt que séparé par domaine : deux plafonds séparés se contournent en alternant.
+
+**Une hebdomadaire vaut plus qu'une quotidienne (10 contre 3)** parce qu'elle est un engagement
+unique et non sept petits : la payer 3 comme une quotidienne rendrait le rythme hebdomadaire
+strictement perdant, et personne ne le choisirait.
+
+**Le jour de référence est celui du Chasseur**, comme partout ailleurs (section 2) : le plafond
+se recompte sur les gestes de sa journée à lui, pas sur celle du serveur.
+
+**Rien n'est stocké.** L'XP déjà acquis dans la journée se **recalcule** depuis les gestes du
+jour — journal des habitudes et tâches cochées — exactement comme la série d'une habitude se
+recalcule depuis son journal. Un compteur entretenu à côté divergerait à la première écriture
+concurrente.
+
 ---
 
 ## 2. Séries (streaks)
