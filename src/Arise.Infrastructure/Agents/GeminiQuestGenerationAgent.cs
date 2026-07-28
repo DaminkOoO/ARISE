@@ -52,37 +52,6 @@ internal sealed class GeminiQuestGenerationAgent(
     };
 
     /// <summary>
-    /// Prescription chiffrée : charge, allure, calories, pourcentage d'effort. Interdites par
-    /// la règle non négociable n°5.
-    ///
-    /// <para>Ce qui n'est <b>pas</b> visé, et volontairement : les répétitions et les minutes
-    /// au poids du corps (« 40 pompes », « 5 minutes de gainage »). C'est l'exemple validé du
-    /// document de référence, et un filtre qui le rejetterait servirait le repli tous les
-    /// jours — une dégradation permanente au nom d'un garde-fou.</para>
-    /// </summary>
-    private static readonly Regex PrescriptionChiffree = new(
-        @"\d+\s*(?:%|kg\b|kilos?\b|kilogrammes?\b|lbs?\b|livres?\b|kcal\b|calories?\b|rm\b"
-        + @"|watts?\b|km\s*/\s*h\b|min\s*/\s*km\b)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// Les unités et les tournures de prescription, jugées <b>indépendamment du chiffre</b>.
-    /// Exiger un <c>\d+</c> collé à l'unité se contournait sans effort : « à cent kilos » écrit
-    /// en toutes lettres, « g de protéines » (un dosage nutritionnel, nommé par la règle n°5),
-    /// « 4:30 au kilomètre » où le séparateur porte l'allure.
-    ///
-    /// <para>« jeûne » et « jeune » se confondent une fois les accents retirés : un « reste
-    /// jeune » innocent serait rejeté. C'est le bon sens du compromis — un faux positif ne coûte
-    /// qu'un repli sûr, là où un faux négatif atteint l'écran du Chasseur.</para>
-    /// </summary>
-    private static readonly Regex UniteDePrescription = new(
-        @"\b(?:kg|kilos?|kilogrammes?|kcal|calories?|watts?|bpm|pulsations?|jeune|jeuner"
-        + @"|allures?)\b|\bg\s+de\s+proteines?\b|\bau\s+kilometre\b|\d\s*:\s*\d|%",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
     /// Au-delà de ce nombre, un chiffre cesse d'être un défi de jeu : « 40 pompes » se juge à
     /// vue d'œil, « 500 pompes » est une prescription déguisée. Le contexte transmis au modèle
     /// ne porte ni condition physique ni historique de complétion — le plafond ne peut donc pas
@@ -112,86 +81,6 @@ internal sealed class GeminiQuestGenerationAgent(
     /// </summary>
     private static readonly Regex DistanceChiffree = new(
         @"\d+\s*(?:km\b|kilometres?\b|metres?\b|miles?\b)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// Vocabulaire qu'une quête n'a aucune raison d'employer : diagnostic et interprétation de
-    /// symptôme, registre médical, et reproche.
-    ///
-    /// <para>S'applique au texte débarrassé de ses accents, pour qu'un « echoue » sans accent
-    /// ne passe pas au travers. Les faux positifs coûtent une nouvelle tentative puis une
-    /// quête de repli sûre : jamais une quête douteuse affichée au Chasseur.</para>
-    ///
-    /// <para><b>« douleur » et « blessure » n'y figurent pas</b>, et c'est délibéré : la règle
-    /// n°5 <i>exige</i> qu'une mention de douleur renvoie vers un professionnel de santé. Les
-    /// bannir rejetterait « arrête-toi à la moindre douleur et consulte un professionnel de
-    /// santé » — la plus sûre des réponses, et celle que le prompt réclame. Ce qui est interdit
-    /// est l'injonction à passer outre : voir <see cref="InjonctionAPasserOutre"/>.</para>
-    /// </summary>
-    private static readonly Regex VocabulaireInterdit = new(
-        @"\b(?:tendinite|entorse|claquage|dechirure|fracture"
-        + @"|diagnostic|symptome|pathologie|inflammation|anti-?inflammatoire|ordonnance"
-        + @"|posologie|dose|medicament|traitement|therapie|regime"
-        + @"|honte|paresse|paresseux|paresseuse|faineant|mediocre|lamentable|indigne"
-        + @"|decevant|decu|echec|echoue|echouee)s?\b",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// Le reproche implicite — celui qui ne dit ni « honte » ni « médiocre », et qui est
-    /// pourtant le registre qu'un modèle adopte quand on lui transmet une série à zéro,
-    /// c'est-à-dire le jour où le Chasseur a déjà décroché (règle n°5).
-    ///
-    /// <para>« n'abandonne pas », pourtant bien intentionné, tombe sous ce filtre : le repli
-    /// qui en résulte reste un texte accueillant, là où un reproche laissé passer atteint
-    /// quelqu'un un mauvais jour.</para>
-    /// </summary>
-    private static readonly Regex ReprocheImplicite = new(
-        @"\babandonn\w*|\bta faute\b|\bnuls?\b|\bminable|\bpitoyable|\bpathetique"
-        + @"|\btu n'as pas\b|\bencore une fois\b",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// L'injonction à s'entraîner malgré un signal du corps — le vrai danger de la règle n°5,
-    /// là où le mot « douleur » seul n'en est pas un.
-    /// </summary>
-    private static readonly Regex InjonctionAPasserOutre = new(
-        @"\b(?:malgre|surmonte|surmonter|surmontant|ignore|ignorer|ignorant|depasse|depasser"
-        + @"|encaisse|encaisser|endure|endurer|passer?\s+outre|sans\s+ecouter"
-        + @"|sans\s+tenir\s+compte(?:\s+de)?)"
-        + @"\s+(?:l[ae]|ta|ton|tes|ce|cette|toute|la\s+moindre)?\s*"
-        + @"(?:douleurs?|souffrances?|blessures?|genes?|inconforts?|signaux?|signal)\b",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// Mots-outils français, cherchés dans la description générée. Tous les autres garde-fous
-    /// de ce fichier sont des lexiques français : une réponse en anglais les franchit
-    /// intégralement — « You failed yesterday, hunter. Push through the pain. » est à la fois
-    /// une culpabilisation et une injonction à ignorer la douleur — et s'afficherait telle
-    /// quelle au Chasseur, en violation de la règle n°7 par-dessus le marché.
-    ///
-    /// <para>Une description d'une à deux phrases en porte forcément au moins un ; c'est ce qui
-    /// rend l'heuristique fiable là où elle ne le serait pas sur un titre nominal
-    /// (« Éveil du Corps », « Ascension »).</para>
-    /// </summary>
-    private static readonly Regex MotsOutilsFrancais = new(
-        @"\b(?:le|la|les|un|une|des|du|de|au|aux|en|et|ou|ton|ta|tes|son|sa|ses|mon|ma|mes"
-        + @"|ce|cet|cette|qui|que|pour|par|avec|sans|sous|dans|sur|vers|chez|entre|contre"
-        + @"|selon|pendant|avant|apr[eè]s|jusqu|aujourd|hui|ne|pas|plus|tu|toi|te|se|si|puis"
-        + @"|alors|donc|mais|comme|encore|bien|tout|toute|tous|toutes|chaque|est|sont)\b|à",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
-
-    /// <summary>
-    /// Le pendant du contrôle précédent pour le titre, trop court pour porter un mot-outil :
-    /// ici on ne cherche pas du français, on refuse ce qui est visiblement anglais.
-    /// </summary>
-    private static readonly Regex MarqueurAnglais = new(
-        @"\b(?:you|your|the|and|with|through|push|keep|today|yesterday|dont|don't|reps"
-        + @"|workout|hunter|no\s+excuses)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(1));
 
@@ -398,7 +287,7 @@ internal sealed class GeminiQuestGenerationAgent(
 
         // En dernier, et sur la description seule : c'est le contrôle le plus grossier des
         // trois, celui qui rattrape ce que des lexiques français laissent forcément passer.
-        if (!MotsOutilsFrancais.IsMatch(description))
+        if (!GardeFousTextuels.SembleEtreEnFrancais(description))
         {
             logger.LogWarning("Description de quête rejetée : elle ne semble pas être en français.");
             return Tentative.Rejet("la quête doit être écrite en français, au tutoiement");
@@ -446,37 +335,39 @@ internal sealed class GeminiQuestGenerationAgent(
     /// </summary>
     private static string? ViolationDesGardeFous(string texte)
     {
-        if (MarqueurAnglais.IsMatch(texte))
+        if (GardeFousTextuels.EstVisiblementAnglais(texte))
         {
             return "la quête doit être écrite en français, au tutoiement";
         }
 
-        var normalise = SansAccents(texte);
+        var normalise = GardeFousTextuels.SansAccents(texte);
 
-        if (PrescriptionChiffree.IsMatch(normalise) || UniteDePrescription.IsMatch(normalise))
+        if (GardeFousTextuels.PrescritDesChiffres(normalise))
         {
             return "une quête ne prescrit ni charge, ni allure, ni calories, ni dosage, ni "
                 + "pourcentage d'effort";
         }
 
+        // Propre au sport, et donc laissé ici : la magnitude tolérable dépend de ce qu'une
+        // quête du jour est censée mobiliser, pas d'une règle de texte partagée.
         if (MagnitudeHorsBornes(normalise) is { } motifMagnitude)
         {
             return motifMagnitude;
         }
 
-        if (InjonctionAPasserOutre.IsMatch(normalise))
+        if (GardeFousTextuels.InviteAPasserOutreLaDouleur(normalise))
         {
             return "une quête n'invite jamais à s'entraîner malgré une douleur : elle invite au "
                 + "contraire à s'arrêter et à consulter un professionnel de santé";
         }
 
-        if (ReprocheImplicite.IsMatch(normalise))
+        if (GardeFousTextuels.Reproche(normalise))
         {
             return "une quête ne reproche jamais rien au Chasseur, même quand sa série est "
                 + "tombée à zéro";
         }
 
-        if (VocabulaireInterdit.IsMatch(normalise))
+        if (GardeFousTextuels.EmploieUnVocabulaireInterdit(normalise))
         {
             return "une quête ne pose aucun diagnostic, ne prescrit aucun traitement et ne "
                 + "formule jamais de reproche";
@@ -522,21 +413,6 @@ internal sealed class GeminiQuestGenerationAgent(
 
         return null;
     }
-
-    /// <summary>
-    /// Débarrasse le texte de ses accents pour que la recherche de vocabulaire interdit ne se
-    /// laisse pas contourner par un mot mal accentué, et ramène l'apostrophe typographique à
-    /// l'apostrophe droite — un modèle emploie volontiers la première, et « tu n’as pas »
-    /// passerait alors au travers de « tu n'as pas ».
-    /// </summary>
-    private static string SansAccents(string texte) =>
-        new(texte
-            .Replace('’', '\'')
-            .Replace('ʼ', '\'')
-            .Normalize(NormalizationForm.FormD)
-            .Where(caractere =>
-                CharUnicodeInfo.GetUnicodeCategory(caractere) != UnicodeCategory.NonSpacingMark)
-            .ToArray());
 
     private static QuestType? TraduireType(string? jeton) => jeton?.Trim().ToLowerInvariant() switch
     {

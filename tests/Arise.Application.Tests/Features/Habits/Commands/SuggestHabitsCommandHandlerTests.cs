@@ -71,7 +71,9 @@ public class SuggestHabitsCommandHandlerTests
 
         await _systeme.Received(1).ExecuteAsync(
             Arg.Is<HabitSuggestionAgentRequest>(demande =>
-                demande.Level == _profil.Level && demande.Rank == _profil.Rank),
+                demande != null
+                && demande.Level == _profil.Level
+                && demande.Rank == _profil.Rank),
             Arg.Any<CancellationToken>());
     }
 
@@ -86,7 +88,7 @@ public class SuggestHabitsCommandHandlerTests
 
         await _systeme.Received(1).ExecuteAsync(
             Arg.Is<HabitSuggestionAgentRequest>(demande =>
-                demande.HabitudesExistantes.Contains("Courir le matin")),
+                demande != null && demande.HabitudesExistantes.Contains("Courir le matin")),
             Arg.Any<CancellationToken>());
     }
 
@@ -99,7 +101,8 @@ public class SuggestHabitsCommandHandlerTests
         await Suggerer();
 
         await _systeme.Received(1).ExecuteAsync(
-            Arg.Is<HabitSuggestionAgentRequest>(demande => demande.HabitudesExistantes.Count == 0),
+            Arg.Is<HabitSuggestionAgentRequest>(demande =>
+                demande != null && demande.HabitudesExistantes.Count == 0),
             Arg.Any<CancellationToken>());
     }
 

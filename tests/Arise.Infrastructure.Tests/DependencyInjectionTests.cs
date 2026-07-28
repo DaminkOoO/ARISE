@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Features.Habits;
 using Arise.Application.Features.Hunters;
 using Arise.Application.Features.Sport;
 using Arise.Infrastructure.Agents;
@@ -107,9 +108,20 @@ public class DependencyInjectionTests
     // Le délai par défaut d'un HttpClient est de 100 secondes — soit 200 au pire avec la
     // nouvelle tentative de l'agent de quêtes, sur un chemin de lecture où le Chasseur attend
     // devant son écran. Mieux vaut le repli au bout de dix secondes.
+    // Même câblage en client HTTP typé que les deux autres agents.
+    [Fact]
+    public void Branche_l_agent_de_suggestion_d_habitudes_sur_l_implementation_Gemini()
+    {
+        using var fournisseur = Cablage().BuildServiceProvider();
+
+        fournisseur.GetRequiredService<IHabitSuggestionAgent>()
+            .Should().BeOfType<GeminiHabitSuggestionAgent>();
+    }
+
     [Theory]
     [InlineData(nameof(IOnboardingAgent))]
     [InlineData(nameof(IQuestGenerationAgent))]
+    [InlineData(nameof(IHabitSuggestionAgent))]
     public void Borne_le_delai_d_attente_des_clients_Gemini(string nomDuClient)
     {
         using var fournisseur = Cablage().BuildServiceProvider();

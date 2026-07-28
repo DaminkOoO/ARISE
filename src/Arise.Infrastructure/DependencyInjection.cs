@@ -1,4 +1,5 @@
 using Arise.Application.Common.Abstractions;
+using Arise.Application.Features.Habits;
 using Arise.Application.Features.Hunters;
 using Arise.Application.Features.Sport;
 using Arise.Infrastructure.Agents;
@@ -66,6 +67,13 @@ public static class DependencyInjection
         });
 
         services.AddHttpClient<IQuestGenerationAgent, GeminiQuestGenerationAgent>((provider, client) =>
+        {
+            var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
+            client.BaseAddress = new Uri(gemini.BaseUrl);
+            client.Timeout = DelaiDAttenteGemini;
+        });
+
+        services.AddHttpClient<IHabitSuggestionAgent, GeminiHabitSuggestionAgent>((provider, client) =>
         {
             var gemini = provider.GetRequiredService<IOptions<GeminiOptions>>().Value;
             client.BaseAddress = new Uri(gemini.BaseUrl);
