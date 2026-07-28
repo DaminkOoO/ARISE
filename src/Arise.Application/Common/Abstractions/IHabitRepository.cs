@@ -28,5 +28,12 @@ public interface IHabitRepository
     Task<IReadOnlyList<Habit>> GetForHunterAsync(
         Guid hunterProfileId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// L'habitude portant cet identifiant, ou <see langword="null"/>. Rend l'habitude
+    /// <b>archivée comprise</b> : c'est à l'appelant de décider ce qu'une habitude rangée
+    /// autorise, et la journalisation la refuse avec un message qui lui est propre.
+    /// </summary>
+    Task<Habit?> GetByIdAsync(Guid habitId, CancellationToken cancellationToken);
+
     Task AddAsync(Habit habit, CancellationToken cancellationToken);
 }

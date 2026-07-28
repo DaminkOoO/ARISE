@@ -29,6 +29,8 @@ public sealed class AriseDbContext(DbContextOptions<AriseDbContext> options)
 
     public DbSet<Habit> Habits => Set<Habit>();
 
+    public DbSet<HabitLog> HabitLogs => Set<HabitLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // und-u-ks-level2 : comparaison au niveau 2, qui ignore la casse mais garde les

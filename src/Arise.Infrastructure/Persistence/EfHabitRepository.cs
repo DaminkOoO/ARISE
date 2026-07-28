@@ -9,9 +9,11 @@ namespace Arise.Infrastructure.Persistence;
 /// <summary>
 /// Accès EF Core aux habitudes déclarées.
 ///
-/// <para><see cref="GetForHunterAsync"/> passe en <c>AsNoTracking</c> : c'est le chemin de
-/// lecture de l'écran Habitudes, qui affiche et ne mute rien. La journalisation, elle, chargera
-/// l'habitude par un autre chemin — suivi, celui-là.</para>
+/// <para>Toutes les lectures passent en <c>AsNoTracking</c>, y compris celle de la
+/// journalisation : cette dernière lit le rythme et le rattachement de l'habitude, puis écrit
+/// dans le <b>journal</b> — elle ne mute jamais l'habitude elle-même, et il n'y a donc aucune
+/// modification à détecter. Le jour où une commande modifiera une habitude — la renommer, la
+/// ranger —, c'est elle qui aura besoin d'un chemin suivi, pas celle-ci.</para>
 /// </summary>
 internal sealed class EfHabitRepository(AriseDbContext context) : IHabitRepository
 {
@@ -30,6 +32,16 @@ internal sealed class EfHabitRepository(AriseDbContext context) : IHabitReposito
                     && habit.Name == name
                     && !habit.IsArchived,
                 cancellationToken);
+
+    /// <summary>
+    /// Rend l'habitude <b>archivée comprise</b> : c'est le contrat de l'interface, et faire
+    /// disparaître une habitude rangée la rendrait « introuvable » — un autre message, et une
+    /// autre vérité, que le Chasseur lirait à la place de « remets-la dans ta liste ».
+    /// </summary>
+    public Task<Habit?> GetByIdAsync(Guid habitId, CancellationToken cancellationToken) =>
+        context.Habits
+            .AsNoTracking()
+            .SingleOrDefaultAsync(habit => habit.Id == habitId, cancellationToken);
 
     public async Task<IReadOnlyList<Habit>> GetForHunterAsync(
         Guid hunterProfileId, CancellationToken cancellationToken) =>

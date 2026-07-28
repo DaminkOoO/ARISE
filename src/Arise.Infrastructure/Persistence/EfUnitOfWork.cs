@@ -13,7 +13,9 @@ namespace Arise.Infrastructure.Persistence;
 /// <c>SaveChangesAsync</c> et y revient si l'écriture échoue. Une violation d'unicité — qui,
 /// elle, abandonne bel et bien la transaction PostgreSQL — est donc défaite jusqu'à ce point
 /// plutôt que de rendre la transaction inutilisable pour la suite du handler.
-/// <c>ConflitsEnTransactionSurPostgresTests</c> tient les deux cas sous surveillance.</para>
+/// <c>EfHabitLogRepositoryTests.Une_entree_refusee_en_transaction_laisse_valider_la_suite</c>
+/// tient ce cas sous surveillance : c'est le seul chemin du dépôt où un handler <b>poursuit</b>
+/// après une violation d'unicité au lieu de laisser remonter la panne.</para>
 /// </summary>
 internal sealed class EfUnitOfWork(AriseDbContext context) : IUnitOfWork
 {

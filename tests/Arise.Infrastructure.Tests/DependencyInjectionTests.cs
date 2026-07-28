@@ -40,6 +40,16 @@ public class DependencyInjectionTests
         descripteur.Lifetime.Should().Be(ServiceLifetime.Scoped);
     }
 
+    // Même durée de vie que le DbContext dont il dépend, pour la même raison.
+    [Fact]
+    public void Branche_le_repository_du_journal_des_habitudes_sur_EF()
+    {
+        var descripteur = Cablage().Single(service => service.ServiceType == typeof(IHabitLogRepository));
+
+        descripteur.ImplementationType.Should().Be(typeof(EfHabitLogRepository));
+        descripteur.Lifetime.Should().Be(ServiceLifetime.Scoped);
+    }
+
     // Le hacheur est sans état : une seule instance suffit.
     [Fact]
     public void Branche_le_hacheur_sur_l_implementation_Identity()

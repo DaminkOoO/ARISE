@@ -60,6 +60,13 @@ public class EfHabitRepositoryTests(PostgresFixture postgres)
             .GetForHunterAsync(chasseur, CancellationToken.None);
     }
 
+    private async Task<Habit?> RelireParIdentifiant(Guid habitude)
+    {
+        await using var fournisseur = postgres.Fournisseur();
+        return await fournisseur.GetRequiredService<IHabitRepository>()
+            .GetByIdAsync(habitude, CancellationToken.None);
+    }
+
     private async Task<bool> NomDejaPorte(Guid chasseur, string nom)
     {
         await using var fournisseur = postgres.Fournisseur();
@@ -149,6 +156,38 @@ public class EfHabitRepositoryTests(PostgresFixture postgres)
         var relues = await Relire(chasseur);
 
         relues.Should().BeEmpty();
+    }
+
+    // Le chemin qu'emprunte la journalisation : elle a besoin du rythme et du rattachement de
+    // l'habitude, pas de toute la liste du Chasseur.
+    [Fact]
+    public async Task Relit_une_habitude_par_son_identifiant()
+    {
+        var chasseur = await ChasseurPose();
+        var habitude = await Declarer(chasseur, "Sortir prendre l'air", HabitFrequency.Hebdomadaire);
+
+        var relue = await RelireParIdentifiant(habitude.Id);
+
+        relue.Should().NotBeNull();
+        relue!.Frequency.Should().Be(HabitFrequency.Hebdomadaire);
+    }
+
+    [Fact]
+    public async Task Ne_relit_rien_pour_un_identifiant_inconnu()
+    {
+        (await RelireParIdentifiant(Guid.NewGuid())).Should().BeNull();
+    }
+
+    // Une habitude rangée existe toujours : c'est à l'appelant de décider ce qu'elle autorise, et
+    // la journalisation la refuse avec un message qui lui est propre — la faire disparaître ici
+    // la rendrait « introuvable », ce qui est un autre message et une autre vérité.
+    [Fact]
+    public async Task Relit_aussi_une_habitude_archivee_par_son_identifiant()
+    {
+        var chasseur = await ChasseurPose();
+        var habitude = await Declarer(chasseur, "Relire mes notes", archivee: true);
+
+        (await RelireParIdentifiant(habitude.Id)).Should().NotBeNull();
     }
 
     [Fact]
