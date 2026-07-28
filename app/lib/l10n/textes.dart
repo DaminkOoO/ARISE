@@ -51,6 +51,23 @@ abstract final class Textes {
   static const String terminer = 'Terminer';
   static const String historiqueRecent = 'Historique récent';
 
+  // Habitudes & Tâches.
+  static const String habitudesTitre = 'HABITUDES & TÂCHES';
+  static const String sectionHabitudes = '[Habitudes]';
+  static const String sectionTaches = '[Tâches]';
+
+  /// Une série à zéro n'est pas un échec à afficher : « 0 jour » pointerait un
+  /// manquement, là où le Système invite (règle n°5).
+  static const String serieACommencer = 'À commencer';
+  static const String sansEcheance = 'Sans échéance';
+  static const String aucuneHabitude =
+      "Aucune habitude pour l'instant. Le Système peut t'en proposer.";
+  static const String aucuneTache = "Rien ne t'attend pour l'instant.";
+  static const String ajouter = 'Ajouter';
+
+  static String serieEnSemaines(int semaines) =>
+      semaines <= 1 ? '$semaines semaine' : '$semaines semaines';
+
   // Accueil.
   static const String serieActuelle = 'Série actuelle';
   static const String navAccueil = 'Accueil';
@@ -59,6 +76,7 @@ abstract final class Textes {
   static const String navHabitudes = 'Habitudes';
   static const String navCalendrier = 'Calendrier';
 
-  static String serieEnJours(int jours) => '$jours jours';
+  static String serieEnJours(int jours) =>
+      jours <= 1 ? '$jours jour' : '$jours jours';
   static String xp(int montant) => '+$montant XP';
 }
