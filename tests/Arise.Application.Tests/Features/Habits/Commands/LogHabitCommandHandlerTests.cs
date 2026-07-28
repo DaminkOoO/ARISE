@@ -1,8 +1,11 @@
 using Arise.Application.Common.Abstractions;
 using Arise.Application.Common.Exceptions;
 using Arise.Application.Features.Habits.Commands.LogHabit;
+using Arise.Application.Features.Hunters.Commands.AwardXp;
 using Arise.Domain.Habits;
+using Arise.Domain.Hunters;
 using FluentAssertions;
+using MediatR;
 using NSubstitute;
 
 namespace Arise.Application.Tests.Features.Habits.Commands;
@@ -25,6 +28,8 @@ public class LogHabitCommandHandlerTests
 
     private readonly IHabitRepository _habitudes = Substitute.For<IHabitRepository>();
     private readonly IHabitLogRepository _journaux = Substitute.For<IHabitLogRepository>();
+    private readonly ITaskItemRepository _taches = Substitute.For<ITaskItemRepository>();
+    private readonly ISender _mediateur = Substitute.For<ISender>();
 
     private readonly Guid _chasseur = Guid.NewGuid();
     private readonly Habit _habitude;
@@ -37,6 +42,30 @@ public class LogHabitCommandHandlerTests
         _habitudes.GetByIdAsync(_habitude.Id, Arg.Any<CancellationToken>()).Returns(_habitude);
         _journaux.GetDaysAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns([]);
+        _journaux.GetDayFrequenciesForHunterAsync(
+                Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+        _taches.CountCompletedBetweenAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>())
+            .Returns(0);
+    }
+
+    /// <summary>Ce que le Chasseur a déjà tenu aujourd'hui, avant le geste en cours.</summary>
+    private void DejaTenuAujourdHui(
+        HabitFrequency[]? habitudes = null, int taches = 0)
+    {
+        _journaux.GetDayFrequenciesForHunterAsync(
+                Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(habitudes ?? []);
+        _taches.CountCompletedBetweenAsync(
+                Arg.Any<Guid>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<CancellationToken>())
+            .Returns(taches);
     }
 
     private Task<LogHabitResult> Journaliser(
@@ -45,7 +74,11 @@ public class LogHabitCommandHandlerTests
         string fuseau = "Europe/Paris",
         DateTimeOffset? maintenant = null) =>
         new LogHabitCommandHandler(
-                _habitudes, _journaux, new HorlogeFigee(maintenant ?? Maintenant))
+                _habitudes,
+                _journaux,
+                _taches,
+                _mediateur,
+                new HorlogeFigee(maintenant ?? Maintenant))
             .Handle(
                 new LogHabitCommand(chasseur ?? _chasseur, habitude ?? _habitude.Id, fuseau),
                 CancellationToken.None);
@@ -244,6 +277,120 @@ public class LogHabitCommandHandlerTests
         var acte = async () => await Journaliser();
 
         await acte.Should().ThrowAsync<HabitArchivedException>();
+    }
+
+    // --- XP d'engagement (doc mécaniques, section 1) -----------------------------------------
+
+    // L'XP passe par AwardXpCommand via MediatR, jamais par un appel direct à
+    // HunterProfile.AwardXp : le moteur de progression a un point d'entrée unique.
+    [Fact]
+    public async Task Accorde_trois_XP_pour_une_habitude_quotidienne_tenue()
+    {
+        await Journaliser();
+
+        await _mediateur.Received(1).Send(
+            Arg.Is<AwardXpCommand>(commande =>
+                commande != null && commande.HunterProfileId == _chasseur && commande.Montant == 3),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Accorde_dix_XP_pour_une_habitude_hebdomadaire_tenue()
+    {
+        var hebdomadaire = Declarer(HabitFrequency.Hebdomadaire);
+
+        await Journaliser(habitude: hebdomadaire.Id);
+
+        await _mediateur.Received(1).Send(
+            Arg.Is<AwardXpCommand>(commande => commande != null && commande.Montant == 10),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Rend_l_XP_acquis()
+    {
+        (await Journaliser()).XpAcquis.Should().Be(3);
+    }
+
+    // Le gain a été accordé au premier appel : le rejouer paierait deux fois le même geste.
+    [Fact]
+    public async Task N_accorde_aucun_XP_pour_un_jour_deja_tenu()
+    {
+        JournalDeja(Aujourdhui);
+
+        var resultat = await Journaliser();
+
+        resultat.XpAcquis.Should().Be(0);
+        await _mediateur.DidNotReceive().Send(
+            Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task N_accorde_aucun_XP_quand_une_journalisation_simultanee_a_gagne()
+    {
+        _journaux.AddAsync(Arg.Any<HabitLog>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new HabitAlreadyLoggedException()));
+
+        var resultat = await Journaliser();
+
+        resultat.XpAcquis.Should().Be(0);
+        await _mediateur.DidNotReceive().Send(
+            Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    // Le plafond est cumulé entre habitudes et tâches : deux plafonds séparés se contourneraient
+    // en alternant.
+    [Fact]
+    public async Task Compte_les_taches_du_jour_dans_le_plafond()
+    {
+        DejaTenuAujourdHui(taches: 5);
+
+        (await Journaliser()).XpAcquis.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rogne_le_gain_qui_deborderait_du_plafond()
+    {
+        // 4 tâches = 20 XP ; une hebdomadaire en vaudrait 10, mais il n'en reste que 5.
+        DejaTenuAujourdHui(taches: 4);
+        var hebdomadaire = Declarer(HabitFrequency.Hebdomadaire);
+
+        (await Journaliser(habitude: hebdomadaire.Id)).XpAcquis.Should().Be(5);
+    }
+
+    // Le plafond rogne le gain, jamais le geste : l'habitude reste tenue, et sa série avance.
+    [Fact]
+    public async Task Journalise_quand_meme_l_habitude_une_fois_le_plafond_atteint()
+    {
+        DejaTenuAujourdHui(taches: 5);
+
+        await Journaliser();
+
+        await _journaux.Received(1).AddAsync(
+            Arg.Any<HabitLog>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task N_envoie_aucune_commande_d_XP_quand_le_gain_est_nul()
+    {
+        DejaTenuAujourdHui(taches: 5);
+
+        await Journaliser();
+
+        await _mediateur.DidNotReceive().Send(
+            Arg.Any<AwardXpCommand>(), Arg.Any<CancellationToken>());
+    }
+
+    // Le total du jour est recalculé depuis les gestes, jamais lu sur un compteur : les
+    // habitudes déjà tenues comptent à leur propre rythme.
+    [Fact]
+    public async Task Compte_les_habitudes_du_jour_a_leur_rythme_dans_le_plafond()
+    {
+        DejaTenuAujourdHui(
+            habitudes: [HabitFrequency.Hebdomadaire, HabitFrequency.Hebdomadaire]);
+
+        // 20 XP déjà acquis, il en reste 5 : une quotidienne en vaut 3, elle passe entière.
+        (await Journaliser()).XpAcquis.Should().Be(3);
     }
 
     private sealed class HorlogeFigee(DateTimeOffset maintenant) : TimeProvider

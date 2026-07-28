@@ -28,14 +28,31 @@ public class EfHabitLogRepositoryTests(PostgresFixture postgres)
     /// Une entrée de journal vise une habitude qui vise un Chasseur : les deux clés étrangères
     /// l'exigent, comme en production.
     /// </summary>
-    private async Task<Habit> HabitudePosee(string nom)
+    private async Task<Habit> HabitudePosee(
+        string nom, HabitFrequency rythme = HabitFrequency.Quotidienne)
     {
         var profil = HunterProfile.Create();
-        var habitude = Habit.Create(profil.Id, nom, HabitFrequency.Quotidienne, Creation);
+        var habitude = Habit.Create(profil.Id, nom, rythme, Creation);
 
         await using var fournisseur = postgres.Fournisseur();
         await fournisseur.GetRequiredService<IHunterProfileRepository>()
             .SaveAsync(profil, CancellationToken.None);
+        await fournisseur.GetRequiredService<IHabitRepository>()
+            .AddAsync(habitude, CancellationToken.None);
+
+        return habitude;
+    }
+
+    /// <summary>
+    /// Une seconde habitude pour le Chasseur d'une première — le profil existe déjà, il ne faut
+    /// donc que l'habitude.
+    /// </summary>
+    private async Task<Habit> HabitudePoseePourLeMemeChasseur(
+        Habit voisine, string nom, HabitFrequency rythme)
+    {
+        var habitude = Habit.Create(voisine.HunterProfileId, nom, rythme, Creation);
+
+        await using var fournisseur = postgres.Fournisseur();
         await fournisseur.GetRequiredService<IHabitRepository>()
             .AddAsync(habitude, CancellationToken.None);
 
@@ -95,6 +112,54 @@ public class EfHabitLogRepositoryTests(PostgresFixture postgres)
 
         (await Relire(habitude)).Should().ContainSingle()
             .Which.Should().Be(new DateOnly(2026, 1, 1));
+    }
+
+    private async Task<IReadOnlyList<HabitFrequency>> RythmesDuJour(Guid chasseur, DateOnly jour)
+    {
+        await using var fournisseur = postgres.Fournisseur();
+        return await fournisseur.GetRequiredService<IHabitLogRepository>()
+            .GetDayFrequenciesForHunterAsync(chasseur, jour, CancellationToken.None);
+    }
+
+    // --- Rythmes du jour : ce dont le plafond d'XP d'engagement se nourrit -------------------
+
+    // Les rythmes et non un compte : une hebdomadaire ne vaut pas une quotidienne au barème
+    // (doc mécaniques, section 1).
+    [Fact]
+    public async Task Rend_le_rythme_de_chaque_habitude_tenue_dans_la_journee()
+    {
+        var quotidienne = await HabitudePosee("Boire un thé");
+        var hebdomadaire = await HabitudePoseePourLeMemeChasseur(
+            quotidienne, "Faire le point", HabitFrequency.Hebdomadaire);
+
+        await Journaliser(quotidienne, Jour);
+        await Journaliser(hebdomadaire, Jour);
+
+        var rythmes = await RythmesDuJour(quotidienne.HunterProfileId, Jour);
+
+        rythmes.Should().BeEquivalentTo(
+            [HabitFrequency.Quotidienne, HabitFrequency.Hebdomadaire]);
+    }
+
+    [Fact]
+    public async Task Ne_compte_pas_les_habitudes_tenues_un_autre_jour()
+    {
+        var habitude = await HabitudePosee("Sortir prendre l'air");
+        await Journaliser(habitude, new DateOnly(2026, 7, 25));
+
+        (await RythmesDuJour(habitude.HunterProfileId, Jour)).Should().BeEmpty();
+    }
+
+    // Le plafond est celui du Chasseur : sans ce filtre, les gestes de tous les Chasseurs
+    // épuiseraient le sien.
+    [Fact]
+    public async Task Ne_compte_pas_les_habitudes_d_un_autre_Chasseur()
+    {
+        var habitude = await HabitudePosee("Faire dix pas");
+        var autre = await HabitudePosee("Respirer un grand coup");
+        await Journaliser(autre, Jour);
+
+        (await RythmesDuJour(habitude.HunterProfileId, Jour)).Should().BeEmpty();
     }
 
     // La lecture préalable du handler ne tranche pas deux taps simultanés — deux scopes, deux

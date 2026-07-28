@@ -25,6 +25,25 @@ internal sealed class EfTaskItemRepository(AriseDbContext context) : ITaskItemRe
             .Where(task => task.HunterProfileId == hunterProfileId)
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Borne haute <b>exclue</b> : minuit appartient au jour qui commence, pas à celui qui
+    /// finit. Une borne inclusive des deux côtés compterait deux fois une tâche cochée à minuit
+    /// pile, et lui vaudrait deux fois son XP.
+    /// </summary>
+    public Task<int> CountCompletedBetweenAsync(
+        Guid hunterProfileId,
+        DateTimeOffset debutInclus,
+        DateTimeOffset finExclue,
+        CancellationToken cancellationToken) =>
+        context.Tasks
+            .AsNoTracking()
+            .CountAsync(
+                task => task.HunterProfileId == hunterProfileId
+                    && task.CompletedAt != null
+                    && task.CompletedAt >= debutInclus
+                    && task.CompletedAt < finExclue,
+                cancellationToken);
+
     public async Task AddAsync(TaskItem task, CancellationToken cancellationToken)
     {
         await context.Tasks.AddAsync(task, cancellationToken);

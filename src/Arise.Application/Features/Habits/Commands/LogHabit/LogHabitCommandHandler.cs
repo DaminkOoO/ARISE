@@ -1,27 +1,32 @@
 using Arise.Application.Common.Abstractions;
 using Arise.Application.Common.Exceptions;
+using Arise.Application.Common.Validation;
+using Arise.Application.Features.Hunters.Commands.AwardXp;
 using Arise.Domain.Habits;
+using Arise.Domain.Hunters;
 using MediatR;
 
 namespace Arise.Application.Features.Habits.Commands.LogHabit;
 
 /// <summary>
-/// Journalise une habitude tenue et rend la série recalculée.
+/// Journalise une habitude tenue, accorde l'XP d'engagement, et rend la série recalculée.
 ///
-/// <para><b>Aucun XP accordé, aucun événement publié.</b> Ce n'est pas un oubli : le document de
-/// mécaniques ne chiffre de récompense que pour les quêtes, et la série d'engagement du profil
-/// se nourrit d'un <c>QuestCompletedEvent</c>, que tenir une habitude ne produit pas
-/// (section 2 : « ceci est distinct des séries par habitude individuelle »). Inventer ici un
-/// barème que le document ne fixe pas déséquilibrerait la progression sans que personne n'ait
-/// tranché — c'est une décision de conception, pas une valeur à improviser dans un handler.</para>
+/// <para>L'XP passe par <see cref="AwardXpCommand"/> via MediatR, jamais par un appel direct à
+/// <c>HunterProfile.AwardXp</c> : le moteur de progression a un point d'entrée unique, et
+/// l'appeler en direct le priverait de sa validation et de son pipeline. Le montant vient de
+/// <see cref="BaremeXpEngagement"/> — fixe, et plafonné sur la journée du Chasseur.</para>
 ///
-/// <para>La série n'est ni stockée ni incrémentée : elle est <b>recalculée</b> depuis le journal
-/// par <see cref="SerieDHabitude"/>. Un compteur entretenu ici divergerait de son journal à la
-/// première écriture concurrente, et plus rien ne dirait lequel des deux a raison.</para>
+/// <para>Aucun événement de domaine n'est publié : la série d'engagement du profil ne se nourrit
+/// que de <c>QuestCompletedEvent</c> (doc mécaniques, section 2), et tenir une habitude n'est pas
+/// compléter une quête. La série d'habitude, elle, est <b>recalculée</b> depuis le journal par
+/// <see cref="SerieDHabitude"/> : un compteur entretenu ici divergerait de son journal à la
+/// première écriture concurrente.</para>
 /// </summary>
 public sealed class LogHabitCommandHandler(
     IHabitRepository habits,
     IHabitLogRepository habitLogs,
+    ITaskItemRepository tasks,
+    ISender sender,
     TimeProvider timeProvider)
     : IRequestHandler<LogHabitCommand, LogHabitResult>
 {
@@ -32,8 +37,9 @@ public sealed class LogHabitCommandHandler(
             ?? throw new HabitNotFoundException();
 
         // Le rattachement annoncé n'est pas une étiquette de routage : sans ce contrôle,
-        // n'importe quel Chasseur alimenterait la série des habitudes d'autrui. Même exception
-        // que pour une habitude inconnue, pour ne pas révéler celle d'un autre.
+        // n'importe quel Chasseur alimenterait la série des habitudes d'autrui — et
+        // s'accorderait leur XP. Même exception que pour une habitude inconnue, pour ne pas
+        // révéler celle d'un autre.
         if (habitude.HunterProfileId != request.HunterProfileId)
         {
             throw new HabitNotFoundException();
@@ -47,7 +53,7 @@ public sealed class LogHabitCommandHandler(
             throw new HabitArchivedException();
         }
 
-        var jour = JourDuChasseur(request.FuseauHoraire);
+        var jour = JourDuChasseur.Aujourdhui(timeProvider, request.FuseauHoraire);
 
         // Une seule lecture sert les deux besoins : savoir si le jour est déjà tenu, et calculer
         // la série. Les redemander séparément doublerait l'aller-retour pour la même réponse.
@@ -55,11 +61,20 @@ public sealed class LogHabitCommandHandler(
 
         // Double-tap, renvoi réseau, deux appareils : le jour est déjà tenu et le journal n'a pas
         // à recevoir une seconde ligne. Ce n'est pas une erreur — l'habitude est tenue, et c'est
-        // le drapeau, pas une exception, qui le dit à l'écran.
+        // le drapeau, pas une exception, qui le dit à l'écran. Aucun XP : il a été accordé au
+        // premier appel.
         if (joursTenus.Contains(jour))
         {
-            return Resultat(habitude, jour, joursTenus, dejaJournalisee: true);
+            return Resultat(habitude, jour, joursTenus, dejaJournalisee: true, xpAcquis: 0);
         }
+
+        // Compté avant l'écriture, donc sans le geste en cours : c'est bien « ce qui a déjà été
+        // acquis » qu'il faut opposer au plafond.
+        var dejaAcquis = await XpDEngagementDejaAcquis(
+            request.HunterProfileId, jour, request.FuseauHoraire, cancellationToken);
+
+        var gain = BaremeXpEngagement.Accordable(
+            BaremeXpEngagement.PourHabitude(habitude.Frequency), dejaAcquis);
 
         var joursApres = joursTenus.Append(jour).ToList();
 
@@ -70,26 +85,45 @@ public sealed class LogHabitCommandHandler(
         }
         // Deux taps simultanés, deux scopes, deux DbContext : la lecture ci-dessus n'a rien pu
         // voir, et c'est l'index unique du journal qui tranche. Le perdant se comporte alors
-        // exactement comme un double-tap séquentiel.
+        // exactement comme un double-tap séquentiel — et n'accorde donc aucun XP, que le gagnant
+        // a déjà crédité.
         catch (HabitAlreadyLoggedException)
         {
-            return Resultat(habitude, jour, joursApres, dejaJournalisee: true);
+            return Resultat(habitude, jour, joursApres, dejaJournalisee: true, xpAcquis: 0);
         }
 
-        return Resultat(habitude, jour, joursApres, dejaJournalisee: false);
+        // Après la persistance : si le processus tombait entre les deux, le Chasseur perdrait un
+        // gain — pas la garde qui l'empêche d'être accordé deux fois à la reprise. Des deux
+        // pannes, c'est la seule qui se rattrape.
+        if (gain > 0)
+        {
+            await sender.Send(new AwardXpCommand(habitude.HunterProfileId, gain), cancellationToken);
+        }
+
+        return Resultat(habitude, jour, joursApres, dejaJournalisee: false, xpAcquis: gain);
     }
 
     /// <summary>
-    /// Le jour tel que le Chasseur le vit, comme pour la génération et la complétion d'une quête :
-    /// c'est à ce jour-là que l'effort appartient, et non à celui du serveur. Le cas qui tranche
-    /// (doc mécaniques, section 2) : il est 22h30 en UTC, donc déjà demain à Paris.
+    /// L'XP d'engagement déjà acquis sur la journée du Chasseur, recalculé depuis ses gestes —
+    /// habitudes tenues et tâches cochées confondues, le plafond étant cumulé entre les deux
+    /// domaines.
     /// </summary>
-    private DateOnly JourDuChasseur(string fuseauHoraire) =>
-        DateOnly.FromDateTime(
-            TimeZoneInfo.ConvertTime(
-                timeProvider.GetUtcNow(),
-                TimeZoneInfo.FindSystemTimeZoneById(fuseauHoraire))
-                .DateTime);
+    private async Task<int> XpDEngagementDejaAcquis(
+        Guid hunterProfileId,
+        DateOnly jour,
+        string fuseauHoraire,
+        CancellationToken cancellationToken)
+    {
+        var habitudesTenues = await habitLogs.GetDayFrequenciesForHunterAsync(
+            hunterProfileId, jour, cancellationToken);
+
+        var (debut, fin) = JourDuChasseur.FenetreUtc(jour, fuseauHoraire);
+
+        var tachesCochees = await tasks.CountCompletedBetweenAsync(
+            hunterProfileId, debut, fin, cancellationToken);
+
+        return BaremeXpEngagement.TotalDuJour(habitudesTenues, tachesCochees);
+    }
 
     /// <summary>
     /// La série est recomptée sur le journal <b>tel qu'il est après cet appel</b> : l'écran
@@ -99,10 +133,12 @@ public sealed class LogHabitCommandHandler(
         Habit habitude,
         DateOnly jour,
         IReadOnlyList<DateOnly> joursTenus,
-        bool dejaJournalisee) =>
+        bool dejaJournalisee,
+        int xpAcquis) =>
         new(
             habitude.Id,
             jour,
             dejaJournalisee,
-            SerieDHabitude.Calculer(habitude.Frequency, joursTenus, jour));
+            SerieDHabitude.Calculer(habitude.Frequency, joursTenus, jour),
+            xpAcquis);
 }

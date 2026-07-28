@@ -57,6 +57,23 @@ public class EfTaskItemRepositoryTests(PostgresFixture postgres)
             .GetByIdAsync(tache, CancellationToken.None);
     }
 
+    private async Task Cocher(TaskItem tache, DateTimeOffset instant)
+    {
+        await using var fournisseur = postgres.Fournisseur();
+        var taches = fournisseur.GetRequiredService<ITaskItemRepository>();
+        var chargee = await taches.GetByIdAsync(tache.Id, CancellationToken.None);
+        chargee!.Complete(instant);
+        await taches.SaveAsync(chargee, CancellationToken.None);
+    }
+
+    private async Task<int> CompteesEntre(
+        Guid chasseur, DateTimeOffset debut, DateTimeOffset fin)
+    {
+        await using var fournisseur = postgres.Fournisseur();
+        return await fournisseur.GetRequiredService<ITaskItemRepository>()
+            .CountCompletedBetweenAsync(chasseur, debut, fin, CancellationToken.None);
+    }
+
     [Fact]
     public async Task Relit_une_tache_declaree_depuis_un_contexte_neuf()
     {
@@ -165,6 +182,71 @@ public class EfTaskItemRepositoryTests(PostgresFixture postgres)
 
         relue!.IsCompleted.Should().BeTrue();
         relue.CompletedAt.Should().Be(Tap);
+    }
+
+    // --- Comptage de la fenêtre : ce dont le plafond d'XP d'engagement se nourrit ------------
+
+    [Fact]
+    public async Task Compte_une_tache_cochee_dans_la_fenetre()
+    {
+        var chasseur = await ChasseurPose();
+        var tache = await Declarer(chasseur, "Régler la facture");
+        await Cocher(tache, Tap);
+
+        (await CompteesEntre(chasseur, Tap.AddHours(-1), Tap.AddHours(1))).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Ne_compte_pas_une_tache_jamais_cochee()
+    {
+        var chasseur = await ChasseurPose();
+        await Declarer(chasseur, "Prendre rendez-vous");
+
+        (await CompteesEntre(chasseur, Tap.AddHours(-1), Tap.AddHours(1))).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Ne_compte_pas_une_tache_cochee_avant_la_fenetre()
+    {
+        var chasseur = await ChasseurPose();
+        var tache = await Declarer(chasseur, "Sortir les poubelles");
+        await Cocher(tache, Tap);
+
+        (await CompteesEntre(chasseur, Tap.AddHours(1), Tap.AddHours(2))).Should().Be(0);
+    }
+
+    // Borne haute exclue : minuit appartient au jour qui commence. Inclusive des deux côtés, une
+    // tâche cochée à minuit pile compterait dans deux journées — et vaudrait deux fois son XP.
+    [Fact]
+    public async Task Exclut_l_instant_de_fin_de_fenetre()
+    {
+        var chasseur = await ChasseurPose();
+        var tache = await Declarer(chasseur, "Relever le courrier");
+        await Cocher(tache, Tap);
+
+        (await CompteesEntre(chasseur, Tap.AddHours(-1), Tap)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Inclut_l_instant_de_debut_de_fenetre()
+    {
+        var chasseur = await ChasseurPose();
+        var tache = await Declarer(chasseur, "Arroser les plantes");
+        await Cocher(tache, Tap);
+
+        (await CompteesEntre(chasseur, Tap, Tap.AddHours(1))).Should().Be(1);
+    }
+
+    // Le plafond est celui du Chasseur : sans ce filtre, les gestes de tous épuiseraient le sien.
+    [Fact]
+    public async Task Ne_compte_pas_les_taches_d_un_autre_Chasseur()
+    {
+        var chasseur = await ChasseurPose();
+        var autre = await ChasseurPose();
+        var tache = await Declarer(autre, "Répondre au courriel");
+        await Cocher(tache, Tap);
+
+        (await CompteesEntre(chasseur, Tap.AddHours(-1), Tap.AddHours(1))).Should().Be(0);
     }
 
     // Le repository rend tout ce que le Chasseur a déclaré : ce qui s'affiche est la décision de

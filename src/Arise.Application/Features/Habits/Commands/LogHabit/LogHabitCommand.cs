@@ -38,8 +38,15 @@ public sealed record LogHabitCommand(
 /// — recomptée sur le journal tel qu'il est après cet appel. Locale à l'habitude : elle ne se
 /// confond pas avec la série d'engagement du profil Chasseur.
 /// </param>
+/// <param name="XpAcquis">
+/// L'XP accordé par ce geste (doc mécaniques, section 1). Vaut 0 quand le jour était déjà tenu —
+/// le gain a été accordé au premier appel — ou quand le plafond quotidien d'engagement est
+/// atteint. Dans ce dernier cas l'habitude est bel et bien tenue : c'est le gain qui est rogné,
+/// jamais le geste, et l'écran peut le dire.
+/// </param>
 public sealed record LogHabitResult(
     Guid HabitId,
     DateOnly Jour,
     bool DejaJournalisee,
-    int SerieActuelle);
+    int SerieActuelle,
+    int XpAcquis);

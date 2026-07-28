@@ -22,6 +22,17 @@ public interface IHabitLogRepository
     Task<IReadOnlyList<DateOnly>> GetDaysAsync(Guid habitId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Les rythmes des habitudes que <b>ce Chasseur</b> a tenues ce jour-là, toutes habitudes
+    /// confondues — un élément par habitude tenue.
+    ///
+    /// <para>Rend les rythmes et non un simple compte : l'XP d'engagement dépend du rythme
+    /// (doc mécaniques, section 1), et une hebdomadaire ne vaut pas une quotidienne. C'est ce qui
+    /// permet de recalculer l'XP déjà acquis dans la journée sans le stocker nulle part.</para>
+    /// </summary>
+    Task<IReadOnlyList<HabitFrequency>> GetDayFrequenciesForHunterAsync(
+        Guid hunterProfileId, DateOnly jour, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Ajoute une ligne au journal.
     /// </summary>
     /// <exception cref="Exceptions.HabitAlreadyLoggedException">

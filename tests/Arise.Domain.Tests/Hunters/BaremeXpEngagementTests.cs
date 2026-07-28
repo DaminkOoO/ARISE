@@ -95,6 +95,38 @@ public class BaremeXpEngagementTests
     }
 
     [Fact]
+    public void Le_total_du_jour_est_nul_sans_aucun_geste()
+    {
+        BaremeXpEngagement.TotalDuJour([], tachesCompletees: 0).Should().Be(0);
+    }
+
+    [Fact]
+    public void Le_total_du_jour_compte_chaque_habitude_a_son_rythme()
+    {
+        BaremeXpEngagement.TotalDuJour(
+                [HabitFrequency.Quotidienne, HabitFrequency.Hebdomadaire],
+                tachesCompletees: 0)
+            .Should().Be(13);
+    }
+
+    [Fact]
+    public void Le_total_du_jour_compte_les_taches_cochees()
+    {
+        BaremeXpEngagement.TotalDuJour([], tachesCompletees: 3).Should().Be(15);
+    }
+
+    // Cumulé entre les deux domaines : c'est ce qui empêche de contourner le plafond en
+    // alternant habitudes et tâches.
+    [Fact]
+    public void Le_total_du_jour_cumule_les_deux_domaines()
+    {
+        BaremeXpEngagement.TotalDuJour(
+                [HabitFrequency.Quotidienne, HabitFrequency.Quotidienne],
+                tachesCompletees: 2)
+            .Should().Be(16);
+    }
+
+    [Fact]
     public void Refuse_un_rythme_d_habitude_inconnu()
     {
         var acte = () => BaremeXpEngagement.PourHabitude((HabitFrequency)99);

@@ -5,10 +5,11 @@ namespace Arise.Application.Features.Tasks.Commands.CompleteTask;
 /// <summary>
 /// Le Chasseur coche une tâche.
 ///
-/// <para>Pas de fuseau horaire, contrairement à <c>CompleteGymQuestCommand</c> : rien ici ne
-/// dépend du jour du Chasseur. Il n'y a ni série à créditer — c'est l'affaire des quêtes — ni
-/// fenêtre de complétion à faire respecter : une tâche en retard reste à faire, et la cocher
-/// trois semaines après reste la bonne chose à faire.</para>
+/// <para><paramref name="FuseauHoraire"/> ne sert <b>pas</b> à dater la complétion — celle-ci
+/// est un instant absolu, et aucune fenêtre ne borne le droit de cocher une tâche en retard.
+/// Il sert au <b>plafond quotidien d'XP d'engagement</b> (doc mécaniques, section 1), qui se
+/// recompte sur la journée du Chasseur et non sur celle du serveur. Sans XP à la clé, cette
+/// commande n'en aurait aucun besoin.</para>
 ///
 /// <para><paramref name="HunterProfileId"/> est annoncé par l'appelant tant que le rattachement
 /// au jeton d'authentification n'est pas posé — le handler vérifie néanmoins que la tâche lui
@@ -16,7 +17,8 @@ namespace Arise.Application.Features.Tasks.Commands.CompleteTask;
 /// </summary>
 public sealed record CompleteTaskCommand(
     Guid HunterProfileId,
-    Guid TaskId) : ICommand<CompleteTaskResult>;
+    Guid TaskId,
+    string FuseauHoraire) : ICommand<CompleteTaskResult>;
 
 /// <summary>
 /// Ce que la complétion rend à l'écran.
@@ -31,7 +33,13 @@ public sealed record CompleteTaskCommand(
 /// <see langword="true"/> quand la tâche était déjà faite avant cet appel — double-tap, renvoi
 /// réseau, deux appareils. Ce n'est pas une erreur : la tâche est faite.
 /// </param>
+/// <param name="XpAcquis">
+/// L'XP accordé par ce geste. Vaut 0 quand la tâche était déjà faite — le gain a été accordé au
+/// premier appel — ou quand le plafond quotidien d'engagement est atteint. Dans ce dernier cas
+/// la tâche est bel et bien cochée : c'est le gain qui est rogné, jamais le geste.
+/// </param>
 public sealed record CompleteTaskResult(
     Guid TaskId,
     DateTimeOffset CompletedAt,
-    bool DejaCompletee);
+    bool DejaCompletee,
+    int XpAcquis);

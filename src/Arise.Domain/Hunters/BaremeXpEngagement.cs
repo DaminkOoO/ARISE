@@ -65,4 +65,16 @@ public static class BaremeXpEngagement
     /// </summary>
     public static int Accordable(int valeurDuGeste, int dejaAcquisAujourdHui) =>
         Math.Clamp(PlafondQuotidien - dejaAcquisAujourdHui, 0, valeurDuGeste);
+
+    /// <summary>
+    /// L'XP d'engagement déjà acquis sur la journée du Chasseur, <b>recalculé</b> depuis ses
+    /// gestes du jour — jamais lu sur un compteur.
+    ///
+    /// <para>C'est la même discipline que la série d'une habitude, et pour la même raison : un
+    /// total entretenu à côté divergerait de ses gestes à la première écriture concurrente, et
+    /// plus rien ne dirait lequel des deux a raison.</para>
+    /// </summary>
+    public static int TotalDuJour(
+        IEnumerable<HabitFrequency> habitudesTenues, int tachesCompletees) =>
+        habitudesTenues.Sum(PourHabitude) + (tachesCompletees * PourTache);
 }

@@ -28,6 +28,23 @@ internal sealed class EfHabitLogRepository(AriseDbContext context) : IHabitLogRe
             .Select(log => log.Day)
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Jointure sur <c>habits</c> pour ne retenir que les habitudes du Chasseur et lire leur
+    /// rythme — l'entrée de journal ne le porte pas, et le dupliquer sur la ligne le figerait au
+    /// jour de l'écriture.
+    /// </summary>
+    public async Task<IReadOnlyList<HabitFrequency>> GetDayFrequenciesForHunterAsync(
+        Guid hunterProfileId, DateOnly jour, CancellationToken cancellationToken) =>
+        await context.HabitLogs
+            .AsNoTracking()
+            .Where(log => log.Day == jour)
+            .Join(
+                context.Habits.Where(habit => habit.HunterProfileId == hunterProfileId),
+                log => log.HabitId,
+                habit => habit.Id,
+                (_, habit) => habit.Frequency)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(HabitLog log, CancellationToken cancellationToken)
     {
         await context.HabitLogs.AddAsync(log, cancellationToken);
