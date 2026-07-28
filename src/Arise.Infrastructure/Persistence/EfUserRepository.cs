@@ -28,6 +28,14 @@ internal sealed class EfUserRepository(AriseDbContext context) : IUserRepository
             .AsNoTracking()
             .SingleOrDefaultAsync(user => user.Username == username, cancellationToken);
 
+    /// <summary>
+    /// Suivi, contrairement aux deux lectures ci-dessus : l'onboarding charge le compte par cette
+    /// voie, lui rattache le profil et le re-sauvegarde dans le même scope — c'est le suivi de
+    /// modifications d'EF Core qui doit détecter la mutation.
+    /// </summary>
+    public Task<User?> GetByIdAsync(Guid userId, CancellationToken cancellationToken) =>
+        context.Users.SingleOrDefaultAsync(user => user.Id == userId, cancellationToken);
+
     // Le handler d'inscription ne fait pas de SaveChanges : chaque inscription est une
     // intention complète, l'écriture est validée ici même.
     public async Task AddAsync(User user, CancellationToken cancellationToken)
@@ -48,4 +56,7 @@ internal sealed class EfUserRepository(AriseDbContext context) : IUserRepository
             throw new UsernameAlreadyTakenException();
         }
     }
+
+    public Task SaveAsync(User user, CancellationToken cancellationToken) =>
+        context.SaveChangesAsync(cancellationToken);
 }

@@ -7,12 +7,13 @@ namespace Arise.Application.Features.Hunters.Commands.OnboardHunter;
 /// Éveille un Chasseur : crée son profil de progression et la narration personnalisée de
 /// l'écran Éveil, à partir des objectifs qu'il a déclarés (doc mécaniques, section 4).
 ///
-/// <para>Ne porte pas d'identifiant de compte (<c>User</c>) : ni <see cref="HunterProfile"/>
-/// ni <c>User</c> ne portent aujourd'hui de schéma de relation compte↔profil dans ce dépôt, et
-/// en inventer un ici serait deviner un schéma non spécifié. La liaison revient à la tâche qui
-/// exposera l'endpoint — hors périmètre de celle-ci.</para>
+/// <para><paramref name="UserId"/> est l'identifiant du <b>compte</b> qui s'éveille, et il est
+/// lu sur le jeton d'authentification, jamais sur le corps de la requête. La relation
+/// compte↔profil, laissée ouverte quand cette commande a été écrite, est posée par
+/// <c>User.RattacherLeProfil</c> : c'est elle qui permet ensuite à tous les endpoints protégés
+/// de déduire le profil visé du jeton, plutôt que de faire confiance à l'appelant.</para>
 /// </summary>
-public sealed record OnboardHunterCommand(IReadOnlyList<HunterGoal> Objectifs)
+public sealed record OnboardHunterCommand(Guid UserId, IReadOnlyList<HunterGoal> Objectifs)
     : ICommand<OnboardHunterResult>;
 
 /// <summary>

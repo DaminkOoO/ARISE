@@ -1,10 +1,22 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using Arise.Api;
 using Arise.Application;
+using Arise.Application.Common.Abstractions;
 using Arise.Application.Features.Auth.Commands.Login;
 using Arise.Application.Features.Auth.Commands.RegisterUser;
+using Arise.Application.Features.Habits.Commands.CreateHabit;
+using Arise.Application.Features.Habits.Commands.LogHabit;
+using Arise.Application.Features.Habits.Commands.SuggestHabits;
+using Arise.Application.Features.Habits.Queries.GetHabits;
+using Arise.Application.Features.Hunters;
+using Arise.Application.Features.Hunters.Commands.OnboardHunter;
+using Arise.Application.Features.Tasks.Commands.CompleteTask;
+using Arise.Application.Features.Tasks.Commands.CreateTask;
+using Arise.Application.Features.Tasks.Queries.GetTasks;
+using Arise.Domain.Habits;
 using Arise.Infrastructure;
 using Arise.Infrastructure.Agents;
 using Arise.Infrastructure.Auth;
@@ -17,6 +29,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
+
+// Les énumérations voyagent en texte, dans les deux sens : « Quotidienne » plutôt que 0.
+// Sans ce convertisseur, le contrat dépendrait de l'ordre de déclaration des membres — ajouter
+// un rythme d'habitude au milieu de l'énumération changerait silencieusement le sens des corps
+// déjà envoyés par les clients installés.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Les exceptions métier deviennent des ProblemDetails français au bon code HTTP.
 builder.Services.AddProblemDetails();
@@ -114,6 +133,120 @@ app.MapGet("/auth/moi", (ClaimsPrincipal chasseur) =>
 })
 .RequireAuthorization();
 
+// --- Éveil -------------------------------------------------------------------------------
+
+// Crée le profil de progression du compte authentifié et le lui rattache. Le compte vient du
+// jeton, jamais du corps : c'est cette liaison qui rend sûrs tous les endpoints ci-dessous.
+app.MapPost("/hunters/eveil", async (
+    CorpsEveil corps,
+    ClaimsPrincipal chasseur,
+    ISender mediateur,
+    CancellationToken jeton) =>
+{
+    var idDuCompte = Guid.Parse(chasseur.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+
+    var resultat = await mediateur.Send(
+        new OnboardHunterCommand(idDuCompte, corps.Objectifs), jeton);
+
+    return Results.Created((string?)null, resultat);
+})
+.RequireAuthorization();
+
+// --- Habitudes ---------------------------------------------------------------------------
+
+app.MapGet("/habitudes", async (
+    ClaimsPrincipal chasseur, IUserRepository comptes, ISender mediateur, CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    return Results.Ok(await mediateur.Send(new GetHabitsQuery(profil), jeton));
+})
+.RequireAuthorization();
+
+app.MapPost("/habitudes", async (
+    CorpsCreationHabitude corps,
+    ClaimsPrincipal chasseur,
+    IUserRepository comptes,
+    ISender mediateur,
+    CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    var resultat = await mediateur.Send(
+        new CreateHabitCommand(profil, corps.Name, corps.Frequency), jeton);
+
+    return Results.Created((string?)null, resultat);
+})
+.RequireAuthorization();
+
+// Journalise l'habitude pour la journée du Chasseur. Le fuseau vient du client, seul à le
+// connaître tant que HunterProfile ne le porte pas.
+app.MapPost("/habitudes/{habitId:guid}/journal", async (
+    Guid habitId,
+    CorpsJournalisation corps,
+    ClaimsPrincipal chasseur,
+    IUserRepository comptes,
+    ISender mediateur,
+    CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    return Results.Ok(await mediateur.Send(
+        new LogHabitCommand(profil, habitId, corps.FuseauHoraire), jeton));
+})
+.RequireAuthorization();
+
+app.MapPost("/habitudes/suggestions", async (
+    ClaimsPrincipal chasseur, IUserRepository comptes, ISender mediateur, CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    return Results.Ok(await mediateur.Send(new SuggestHabitsCommand(profil), jeton));
+})
+.RequireAuthorization();
+
+// --- Tâches ------------------------------------------------------------------------------
+
+app.MapGet("/taches", async (
+    ClaimsPrincipal chasseur, IUserRepository comptes, ISender mediateur, CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    return Results.Ok(await mediateur.Send(new GetTasksQuery(profil), jeton));
+})
+.RequireAuthorization();
+
+app.MapPost("/taches", async (
+    CorpsCreationTache corps,
+    ClaimsPrincipal chasseur,
+    IUserRepository comptes,
+    ISender mediateur,
+    CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    var resultat = await mediateur.Send(
+        new CreateTaskCommand(profil, corps.Title, corps.DueDate), jeton);
+
+    return Results.Created((string?)null, resultat);
+})
+.RequireAuthorization();
+
+app.MapPost("/taches/{taskId:guid}/completion", async (
+    Guid taskId,
+    CorpsCompletionTache corps,
+    ClaimsPrincipal chasseur,
+    IUserRepository comptes,
+    ISender mediateur,
+    CancellationToken jeton) =>
+{
+    var profil = await ProfilDuChasseurAuthentifie.ResoudreAsync(chasseur, comptes, jeton);
+
+    return Results.Ok(await mediateur.Send(
+        new CompleteTaskCommand(profil, taskId, corps.FuseauHoraire), jeton));
+})
+.RequireAuthorization();
+
 app.Run();
 
 // Exposé pour WebApplicationFactory<Program> : les tests d'intégration bootent le vrai hôte.
@@ -121,3 +254,16 @@ public partial class Program;
 
 // Identité du Chasseur authentifié, telle que /auth/moi la renvoie.
 internal sealed record ReponseMoi(Guid UserId, string Username);
+
+// Les corps de requête ne portent jamais d'identifiant de profil : celui-ci se déduit du jeton
+// (voir ProfilDuChasseurAuthentifie). Un champ de plus dans ces enregistrements serait une porte
+// ouverte sur les données d'un autre Chasseur.
+internal sealed record CorpsEveil(IReadOnlyList<HunterGoal> Objectifs);
+
+internal sealed record CorpsCreationHabitude(string Name, HabitFrequency Frequency);
+
+internal sealed record CorpsJournalisation(string FuseauHoraire);
+
+internal sealed record CorpsCreationTache(string Title, DateOnly? DueDate);
+
+internal sealed record CorpsCompletionTache(string FuseauHoraire);

@@ -10,7 +10,7 @@ public class OnboardHunterCommandValidatorTests
     private static readonly OnboardHunterCommandValidator Validator = new();
 
     private static ValidationResult Valide(params HunterGoal[] objectifs) =>
-        Validator.Validate(new OnboardHunterCommand(objectifs));
+        Validator.Validate(new OnboardHunterCommand(Guid.NewGuid(), objectifs));
 
     [Fact]
     public void Accepte_un_objectif_declare()

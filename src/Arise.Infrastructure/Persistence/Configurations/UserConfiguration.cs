@@ -33,5 +33,21 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(user => user.RegisteredAt)
             .IsRequired();
+
+        // Nullable : un compte existe dès l'inscription et vit sans profil jusqu'à l'éveil.
+        // Pas de clé étrangère déclarée vers hunter_profiles, et c'est délibéré — la cascade
+        // partirait alors du compte vers le profil, alors que c'est le profil qui porte déjà des
+        // cascades vers ses quêtes, habitudes et tâches. Un cycle de suppression entre les deux
+        // tables coûterait plus cher à démêler que ce que la contrainte protège.
+        builder.Property(user => user.HunterProfileId)
+            .IsRequired(false);
+
+        // Un profil appartient à un seul compte : l'index le garantit en base, là où le contrôle
+        // applicatif de RattacherLeProfil ne voit qu'une instance à la fois. Filtré sur les
+        // comptes déjà éveillés, sans quoi PostgreSQL considérerait les NULL comme distincts —
+        // ce qui marcherait ici, mais rendrait l'index inutilisable pour la lecture qui compte.
+        builder.HasIndex(user => user.HunterProfileId)
+            .IsUnique()
+            .HasFilter("hunter_profile_id IS NOT NULL");
     }
 }

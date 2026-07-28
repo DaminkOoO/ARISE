@@ -132,4 +132,59 @@ public class UserTests
 
         acte.Should().Throw<ArgumentException>();
     }
+
+    // --- Rattachement du profil de progression ------------------------------------------------
+
+    // Un compte existe dès l'inscription et vit sans profil jusqu'à l'éveil : la relation est
+    // facultative de ce côté-là, et c'est pourquoi la clé est portée ici.
+    [Fact]
+    public void Un_compte_fraichement_inscrit_ne_porte_aucun_profil()
+    {
+        Inscrire().HunterProfileId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Rattache_le_profil_eveille_au_compte()
+    {
+        var compte = Inscrire();
+        var profil = Guid.NewGuid();
+
+        compte.RattacherLeProfil(profil);
+
+        compte.HunterProfileId.Should().Be(profil);
+    }
+
+    // Un renvoi réseau de l'onboarding ne doit pas échouer sur un geste qui ne change rien.
+    [Fact]
+    public void Rattacher_deux_fois_le_meme_profil_ne_leve_pas()
+    {
+        var compte = Inscrire();
+        var profil = Guid.NewGuid();
+
+        compte.RattacherLeProfil(profil);
+        var acte = () => compte.RattacherLeProfil(profil);
+
+        acte.Should().NotThrow();
+    }
+
+    // Le laisser passer écraserait silencieusement toute la progression du Chasseur : son
+    // ancien profil deviendrait inatteignable, XP et séries compris.
+    [Fact]
+    public void Refuse_de_rattacher_un_second_profil_different()
+    {
+        var compte = Inscrire();
+        compte.RattacherLeProfil(Guid.NewGuid());
+
+        var acte = () => compte.RattacherLeProfil(Guid.NewGuid());
+
+        acte.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Refuse_de_rattacher_un_profil_sans_identifiant()
+    {
+        var acte = () => Inscrire().RattacherLeProfil(Guid.Empty);
+
+        acte.Should().Throw<ArgumentException>();
+    }
 }

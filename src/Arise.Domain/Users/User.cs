@@ -35,6 +35,54 @@ public sealed class User
     public DateTimeOffset RegisteredAt { get; private set; }
 
     /// <summary>
+    /// Le profil de progression de ce compte, ou <see langword="null"/> tant que le Chasseur ne
+    /// s'est pas éveillé.
+    ///
+    /// <para>La liaison est portée <b>ici</b> et non sur <c>HunterProfile</c>, parce que c'est de
+    /// ce côté-là qu'elle est facultative : un compte existe dès l'inscription et vit sans profil
+    /// jusqu'à l'onboarding, là où un profil sans compte n'a aucun sens. Poser la clé sur le
+    /// profil aurait imposé une colonne obligatoire à une relation qui ne l'est pas encore.</para>
+    ///
+    /// <para>C'est aussi ce qui rend les endpoints sûrs : le profil visé se déduit du jeton, et
+    /// n'est jamais annoncé par l'appelant — sans quoi n'importe quel Chasseur authentifié
+    /// agirait sur les habitudes et les tâches d'un autre en changeant un identifiant dans le
+    /// corps de la requête.</para>
+    /// </summary>
+    public Guid? HunterProfileId { get; private set; }
+
+    /// <summary>
+    /// Rattache le profil fraîchement éveillé à ce compte.
+    /// </summary>
+    /// <exception cref="ArgumentException">Le profil n'a pas d'identifiant.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Le compte porte déjà un profil. Un second éveil ne se produit pas dans le parcours normal
+    /// — le laisser passer écraserait silencieusement toute la progression du Chasseur.
+    /// </exception>
+    public void RattacherLeProfil(Guid hunterProfileId)
+    {
+        if (hunterProfileId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Le profil rattaché doit être identifié.", nameof(hunterProfileId));
+        }
+
+        if (HunterProfileId is { } dejaRattache)
+        {
+            // Idempotent sur le même profil : un renvoi réseau de l'onboarding ne doit pas
+            // échouer. Sur un profil différent, en revanche, c'est un défaut à faire remonter.
+            if (dejaRattache == hunterProfileId)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Ce compte porte déjà un profil de Chasseur.");
+        }
+
+        HunterProfileId = hunterProfileId;
+    }
+
+    /// <summary>
     /// Inscrit un Chasseur. <paramref name="passwordHash"/> est une empreinte déjà calculée :
     /// y passer un mot de passe en clair le stockerait tel quel, sans que rien ne proteste.
     /// </summary>

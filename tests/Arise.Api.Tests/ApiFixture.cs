@@ -1,5 +1,10 @@
+using Arise.Application.Features.Habits;
+using Arise.Application.Features.Hunters;
+using Arise.Domain.Habits;
 using Arise.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
@@ -28,6 +33,21 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     public const string EmetteurDeTest = "arise-tests";
 
     public const string AudienceDeTest = "arise-clients-tests";
+
+    /// <summary>
+    /// Remplace les agents du Système par des doublures déterministes.
+    ///
+    /// <para>Sans cela, l'éveil et les suggestions d'habitudes partiraient joindre l'API Gemini
+    /// réelle depuis la suite de tests — ce que la règle non négociable n°4 interdit. Les tests
+    /// de bord HTTP éprouvent le parcours et la persistance ; la validation des réponses du
+    /// modèle est déjà couverte, à son étage, par les tests d'agent avec faux transport.</para>
+    /// </summary>
+    protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IOnboardingAgent, AgentDOnboardingDeTest>();
+            services.AddSingleton<IHabitSuggestionAgent, AgentDeSuggestionDeTest>();
+        });
 
     async Task IAsyncLifetime.InitializeAsync()
     {
@@ -60,6 +80,28 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         await conteneur.DisposeAsync();
         await base.DisposeAsync();
     }
+}
+
+/// <summary>
+/// Narration d'éveil déterministe : le parcours d'éveil s'éprouve sans dépendre de ce qu'un
+/// modèle aurait rendu ce jour-là.
+/// </summary>
+internal sealed class AgentDOnboardingDeTest : IOnboardingAgent
+{
+    public Task<OnboardingAgentResult> ExecuteAsync(
+        OnboardingAgentRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(new OnboardingAgentResult(
+            "Le Système t'a repéré, Chasseur. Ta voie commence ici.", EstRepli: false));
+}
+
+/// <inheritdoc cref="AgentDOnboardingDeTest"/>
+internal sealed class AgentDeSuggestionDeTest : IHabitSuggestionAgent
+{
+    public Task<HabitSuggestionAgentResult> ExecuteAsync(
+        HabitSuggestionAgentRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(new HabitSuggestionAgentResult(
+            [new HabitSuggestion("Marcher après le déjeuner", HabitFrequency.Quotidienne)],
+            EstRepli: false));
 }
 
 /// <summary>

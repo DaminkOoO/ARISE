@@ -19,5 +19,17 @@ public interface IUserRepository
     /// <summary>Le Chasseur portant ce nom, ou <c>null</c> s'il n'y en a pas.</summary>
     Task<User?> FindByUsernameAsync(string username, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Le compte portant cet identifiant, ou <see langword="null"/>.
+    ///
+    /// <para>C'est le chemin des endpoints protégés : le jeton porte l'identifiant du compte, et
+    /// c'est <b>ce compte</b> qui dit quel profil de Chasseur viser. L'appelant ne l'annonce
+    /// jamais lui-même.</para>
+    /// </summary>
+    Task<User?> GetByIdAsync(Guid userId, CancellationToken cancellationToken);
+
     Task AddAsync(User user, CancellationToken cancellationToken);
+
+    /// <summary>Persiste une modification d'un compte existant — le rattachement du profil.</summary>
+    Task SaveAsync(User user, CancellationToken cancellationToken);
 }
