@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:arise/features/accueil/home_screen.dart';
+import 'package:arise/features/navigation/coquille_navigation.dart';
 import 'package:arise/features/auth/auth_models.dart';
 import 'package:arise/features/auth/auth_providers.dart';
 import 'package:arise/features/auth/auth_screen.dart';
@@ -72,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AuthScreen), findsOneWidget);
-    expect(find.byType(HomeScreen), findsNothing);
+    expect(find.byType(CoquilleNavigation), findsNothing);
   });
 
   testWidgets("avec un jeton stocké, l'app s'ouvre directement sur l'accueil",
@@ -80,7 +80,7 @@ void main() {
     await _demarrer(tester, _FakeTokenStore(enregistre: 'jwt-deja-la'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(CoquilleNavigation), findsOneWidget);
     expect(find.byType(AuthScreen), findsNothing);
   });
 
@@ -112,7 +112,7 @@ void main() {
     await tester.tap(find.byKey(const Key('bouton-soumettre')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(CoquilleNavigation), findsOneWidget);
     expect(find.byType(AuthScreen), findsNothing);
     expect(store.enregistre, 'jwt-neuf');
   });

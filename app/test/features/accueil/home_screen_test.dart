@@ -130,16 +130,8 @@ void main() {
       expect(find.textContaining('Épreuve du Jour'), findsOneWidget);
     });
 
-    testWidgets('affiche la barre de navigation des quatre domaines',
-        (tester) async {
-      await tester.pumpWidget(_app(_FakeHomeService.donnee(_demo)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Accueil'), findsOneWidget);
-      expect(find.text('Sport'), findsOneWidget);
-      expect(find.text('Budget'), findsOneWidget);
-      expect(find.text('Habitudes'), findsOneWidget);
-      expect(find.text('Calendrier'), findsOneWidget);
-    });
+    // La barre de navigation n'est plus rendue par cet écran : elle appartient à
+    // CoquilleNavigation, seule à pouvoir remplacer l'écran affiché. Sa
+    // couverture vit désormais dans coquille_navigation_test.dart.
   });
 }

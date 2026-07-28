@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:arise/features/accueil/home_screen.dart';
+import 'package:arise/features/navigation/coquille_navigation.dart';
 import 'package:arise/features/auth/auth_providers.dart';
 import 'package:arise/features/auth/auth_screen.dart';
 import 'package:arise/features/auth/auth_service.dart';
@@ -100,7 +100,7 @@ void main() {
 
       expect(appels, ['/auth/register', '/auth/login']);
       expect(stockage.jeton, 'jwt-du-parcours');
-      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.byType(CoquilleNavigation), findsOneWidget);
     },
   );
 
@@ -121,7 +121,7 @@ void main() {
 
       await _remplirEtSoumettre(tester, 'KAEL');
 
-      expect(find.byType(HomeScreen), findsNothing);
+      expect(find.byType(CoquilleNavigation), findsNothing);
       expect(
         find.text('Nom de Chasseur ou mot de passe incorrect.'),
         findsOneWidget,

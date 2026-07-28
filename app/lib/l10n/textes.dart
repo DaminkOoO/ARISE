@@ -76,6 +76,11 @@ abstract final class Textes {
   static const String navHabitudes = 'Habitudes';
   static const String navCalendrier = 'Calendrier';
 
+  /// Un domaine dont l'écran n'existe pas encore. Le Système annonce ce qui
+  /// vient : un écran vide se lirait comme une panne.
+  static const String domaineAVenir =
+      "Le Système ouvre ce domaine bientôt. Reviens y jeter un œil.";
+
   static String serieEnJours(int jours) =>
       jours <= 1 ? '$jours jour' : '$jours jours';
   static String xp(int montant) => '+$montant XP';

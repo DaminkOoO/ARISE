@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/accueil/home_screen.dart';
 import 'features/auth/auth_providers.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/navigation/coquille_navigation.dart';
 import 'theme/arise_theme.dart';
 import 'widgets/etats_async.dart';
 import 'widgets/hud_background.dart';
@@ -27,8 +27,9 @@ class AriseApp extends StatelessWidget {
   }
 }
 
-/// Décide, au démarrage, où le Chasseur atterrit : l'accueil s'il a déjà un
-/// jeton en stockage sécurisé, l'écran d'authentification sinon.
+/// Décide, au démarrage, où le Chasseur atterrit : la coquille de navigation —
+/// qui ouvre sur l'accueil — s'il a déjà un jeton en stockage sécurisé, l'écran
+/// d'authentification sinon.
 ///
 /// La lecture du Keystore est asynchrone : ses trois états sont déballés, car
 /// un écran blanc le temps de lire le jeton serait un bug. Un stockage
@@ -47,7 +48,7 @@ class PorteDEntree extends ConsumerWidget {
           ),
           error: (_, _) => const _EcranAuth(),
           data: (jeton) =>
-              jeton == null ? const _EcranAuth() : const HomeScreen(),
+              jeton == null ? const _EcranAuth() : const CoquilleNavigation(),
         );
   }
 }
@@ -62,7 +63,7 @@ class _EcranAuth extends StatelessWidget {
   Widget build(BuildContext context) {
     return AuthScreen(
       onAuthentifie: (_) => Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        MaterialPageRoute<void>(builder: (_) => const CoquilleNavigation()),
       ),
     );
   }
