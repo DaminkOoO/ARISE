@@ -1,6 +1,7 @@
 using Arise.Domain.Habits;
 using Arise.Domain.Hunters;
 using Arise.Domain.Quests;
+using Arise.Domain.Tasks;
 using Arise.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,8 @@ public sealed class AriseDbContext(DbContextOptions<AriseDbContext> options)
     public DbSet<Habit> Habits => Set<Habit>();
 
     public DbSet<HabitLog> HabitLogs => Set<HabitLog>();
+
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IQuestRepository, EfQuestRepository>();
         services.AddScoped<IHabitRepository, EfHabitRepository>();
         services.AddScoped<IHabitLogRepository, EfHabitLogRepository>();
+        services.AddScoped<ITaskItemRepository, EfTaskItemRepository>();
 
         // Scoped, et c'est la propriété dont dépend l'atomicité : l'unité de travail partage la
         // durée de vie du DbContext, donc du scope de la requête. Une commande imbriquée,
